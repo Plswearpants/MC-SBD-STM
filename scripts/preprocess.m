@@ -29,7 +29,7 @@ preprocessing_params = struct();
 data_carried = data_original;
 rangetype='dynamic';
 figure;
-d3gridDisplay(data_carried,rangetype);
+d3gridDisplay(data_carried,r85angetype);
 preprocessing_params.slice_normalize = input('slice to normalize: ');
 
 %% 2.1: Remove bragg peaks
@@ -40,7 +40,7 @@ preprocessing_params.slice_normalize = input('slice to normalize: ');
 data_carried = data_braggremoved;
 
 %% 2.2: crop dataset
-mask= maskSquare(data_carried,0,40,'square');
+mask= maskSquare(data_carried,0,85,'square');
 data_cropped= gridCropMask(data_carried, mask);
 data_carried = data_cropped;
 

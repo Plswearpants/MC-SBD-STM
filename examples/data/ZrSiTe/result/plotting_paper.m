@@ -160,8 +160,8 @@ end
 [A4_rec_symm, A4_rec_symm_45,tform1, angle] = Symmetrizing2(squeeze(pad_QPI_each(4,:,:,:)),'',angle, 'default',true);
 [A5_rec_symm, A5_rec_symm_45,tform1, angle] = Symmetrizing2(squeeze(pad_QPI_each(5,:,:,:)),'',angle, 'default');
 
-% Crop symmetrized output to match QPI_rec x-y size
-%target_size = size(Y_used);
+%% Crop symmetrized output to match QPI_rec x-y size
+
 Y_cropped = centerCropToTargetSize(Y_rec_symm_45, target_size);
 A1_cropped = centerCropToTargetSize(A1_rec_symm_45, target_size);
 A2_cropped = centerCropToTargetSize(A2_rec_symm_45, target_size);
@@ -222,6 +222,9 @@ fig5_inputs.energy_range = [-800, 800];
 fig5_inputs.target_energies = [280, 220, 164];
 fig5_save_path = fullfile(fileparts(mfilename('fullpath')), 'figure5_inputs.mat');
 save(fig5_save_path, 'fig5_inputs');
+
+
+%% Supplementary comparison between crop and Aout
 
 %% Figure 5 (need Aout)
 % figure 5 contains subplots: 

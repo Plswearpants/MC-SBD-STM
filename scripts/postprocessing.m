@@ -2,7 +2,7 @@
 % Aout_All is a n by 1 cell, each cell is a 3D matrix. Now we start post processing output kernels.
 % first we mask out the kernel center with truncated gaussian window, following similar procedure as in Block 2.5.
 % specify which kernel type to process
-kernel_type_to_process = [3,4];
+kernel_type_to_process = [1,2];
 for k = kernel_type_to_process
     f1=figure;
     d3gridDisplay(Aout_ALL{k},'dynamic');
