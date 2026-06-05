@@ -1,0 +1,10 @@
+clc;
+run_env = 'C:\Users\CAD\Documents\GitHub\MT-SBD-STM\runs\zrsite_run_0528';
+repo_root = 'C:\Users\CAD\Documents\GitHub\MT-SBD-STM';
+target_script = 'C:\Users\CAD\Documents\GitHub\MT-SBD-STM\scripts\run_real_data.m';
+setappdata(0, 'MT_SBD_RUN_ENV', run_env);
+setenv('MT_SBD_RUN_ENV', run_env);
+cd(run_env);
+addpath(repo_root);
+init_sbd('quiet', false);
+run(target_script);

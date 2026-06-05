@@ -1,6 +1,55 @@
 %% Centralized run configuration
 cfg = init_config();
 
+% Optional run-environment output root.
+run_env_dir = getenv('MT_SBD_RUN_ENV');
+if isempty(run_env_dir) && isappdata(0, 'MT_SBD_RUN_ENV')
+    run_env_dir = getappdata(0, 'MT_SBD_RUN_ENV');
+end
+
+% Optional runtime input loading: if Y is missing, allow selection from the
+% shared all-inputs directory configured by the runtime launcher.
+if ~exist('Y', 'var') || isempty(Y)
+    all_inputs_dir = getenv('MT_SBD_ALL_INPUTS_DIR');
+    if isempty(all_inputs_dir) && isappdata(0, 'MT_SBD_ALL_INPUTS_DIR')
+        all_inputs_dir = getappdata(0, 'MT_SBD_ALL_INPUTS_DIR');
+    end
+    if isempty(all_inputs_dir) || ~exist(all_inputs_dir, 'dir')
+        error(['Y is not in workspace and MT_SBD_ALL_INPUTS_DIR is not set. ', ...
+            'Load Y manually or start via runtime launcher.']);
+    end
+
+    input_candidates = dir(fullfile(all_inputs_dir, '*.mat'));
+    if isempty(input_candidates)
+        error('No .mat input files found in %s.', all_inputs_dir);
+    end
+
+    fprintf('Y not found in workspace. Select input file from %s:\n', all_inputs_dir);
+    for ii = 1:numel(input_candidates)
+        fprintf('  %d) %s\n', ii, input_candidates(ii).name);
+    end
+    selected_idx = input('Enter file index: ');
+    if isempty(selected_idx) || selected_idx < 1 || selected_idx > numel(input_candidates)
+        error('Invalid input file selection.');
+    end
+
+    selected_file = fullfile(all_inputs_dir, input_candidates(selected_idx).name);
+    loaded_struct = load(selected_file);
+    if ~isfield(loaded_struct, 'Y')
+        error('Selected file does not contain variable Y: %s', selected_file);
+    end
+    Y = loaded_struct.Y;
+    fprintf('Loaded Y from %s\n', selected_file);
+end
+if isempty(run_env_dir)
+    output_root = pwd;
+else
+    output_root = fullfile(run_env_dir, 'output');
+    if ~exist(output_root, 'dir')
+        mkdir(output_root);
+    end
+end
+
 %% Before Run Standardize
 rangetype ='dynamic';
 
@@ -398,6 +447,7 @@ init_results.kernel_sizes = target_kernel_sizes;
 fprintf('Kernel initialization complete for all slices.\n');
 
 %% Convert A1_all to matrix form and prepare noise
+num_slices = size(Y,3);
 A1_all_matrix = cell(num_kernels,1);
 for k = 1:num_kernels
     A1_all_matrix{k} = zeros(size(A1_all{1,k},1),size(A1_all{1,k},2),num_slices);
@@ -414,7 +464,7 @@ eta_data3d = estimate_noise3D(Y, 'std');
 % Examples:
 %   run_slice_idx = 1:80;
 %   run_kernel_idx = [1,2,5];
-run_slice_idx = 100:200;
+run_slice_idx = 121:200;
 run_kernel_idx = [1,2,3,4];
 
 % Validate requested truncation indices.
@@ -577,7 +627,8 @@ else
     slice_tag = sprintf('s%s', strrep(strrep(strrep(mat2str(run_slice_idx), ' ', ''), '[', ''), ']', ''));
 end
 kernel_tag = sprintf('k%s', strrep(strrep(strrep(mat2str(run_kernel_idx), ' ', ''), '[', ''), ']', ''));
-allslice_file = sprintf('ZrSiTe0304_%s_%s_ALL.mat', slice_tag, kernel_tag);
+allslice_name = sprintf('ZrSiTe0528_%s_%s_ALL.mat', slice_tag, kernel_tag);
+allslice_file = fullfile(output_root, allslice_name);
 if exist(allslice_file, 'file')
     ts = datestr(now, 'yyyymmdd_HHMMSS');
     [fpath, fname, fext] = fileparts(allslice_file);
@@ -585,6 +636,7 @@ if exist(allslice_file, 'file')
 end
 save(allslice_file, 'Y_used','Aout_ALL', 'Xout_ALL', 'bout_ALL', 'ALL_extras','A1_used','params', 'eta_data3d_used','observation_fidelity');
 fprintf('Saved all-slice solver output to %s.\n', allslice_file);
+notify_allslice_completion(allslice_file, run_slice_idx, run_kernel_idx);
 
 % plot the observation fidelity  x axis is the number of slices, y is
 % observation fidelity
@@ -595,6 +647,7 @@ for i = 1:outerloop_maxIT
     legend();
 end
 hold off
+
 %% convert Aout_ALL to cell format
 [num_slices, num_kernels] = size(bout_ALL);
 Aout_ALL_cell = cell(num_slices, num_kernels);
@@ -629,8 +682,8 @@ for i = 1:size(Y_used,3)
         Y_rec(:,:,i) = Y_rec(:,:,i) + convfft2(Aout_ALL_cell{i,k}, Xout_ALL(:,:,k)) + bout_ALL(i,k);
     end
 end
-%figure;
-%d3gridDisplay(Y_rec, 'dynamic')
+figure;
+d3gridDisplay(Y_rec, 'dynamic')
 
 %% Create reconstruction for initialized all slices
 Y_init = zeros(size(Y_used));
@@ -1385,4 +1438,133 @@ function [A_out, flipped] = enforce_kernel_polarity(A_in, A_anchor)
         A_out = -A_in;
         flipped = true;
     end
+end
+
+function notify_allslice_completion(output_file, run_slice_idx, run_kernel_idx)
+    timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
+    summary_msg = sprintf(['MT-SBD all-slice block finished at %s. ', ...
+        'Slices=%s, Kernels=%s. Output=%s'], ...
+        timestamp, mat2str(run_slice_idx), mat2str(run_kernel_idx), output_file);
+    fprintf('%s\n', summary_msg);
+
+    % Always create an in-folder completion marker for external watchers.
+    [output_dir, ~, ~] = fileparts(output_file);
+    marker_file = fullfile(output_dir, 'ALL_SLICE_RUN_DONE.txt');
+    fid = fopen(marker_file, 'a');
+    if fid >= 0
+        fprintf(fid, '[%s] %s\n', timestamp, summary_msg);
+        fclose(fid);
+    end
+
+    % Local alert (works without any external setup).
+    try
+        for ii = 1:3
+            beep;
+            pause(0.15);
+        end
+        if usejava('desktop')
+            msgbox(summary_msg, 'MT-SBD All-slice Finished', 'help');
+        end
+    catch
+        % Non-interactive sessions may not support popup/beep.
+    end
+
+    % Optional webhook notification (Slack/Discord/custom endpoint).
+    webhook_url = getenv('MT_SBD_NOTIFY_WEBHOOK_URL');
+    if ~isempty(webhook_url)
+        try
+            payload = struct();
+            payload.text = summary_msg;
+            payload.output_file = output_file;
+            payload.timestamp = timestamp;
+            payload.slices = run_slice_idx;
+            payload.kernels = run_kernel_idx;
+            opts = weboptions('MediaType', 'application/json', 'Timeout', 20);
+            webwrite(webhook_url, payload, opts);
+            fprintf('Webhook notification sent.\n');
+        catch ME
+            warning('Webhook notification failed: %s', ME.message);
+        end
+    end
+
+    % Optional email notification.
+    email_to = getenv('MT_SBD_NOTIFY_EMAIL');
+    if ~isempty(email_to)
+        try
+            configure_sendmail_from_env();
+            subject = 'MT-SBD all-slice block finished';
+            sendmail(email_to, subject, summary_msg);
+            fprintf('Email notification sent to %s.\n', email_to);
+        catch ME
+            warning(['Email notification failed: %s. ', ...
+                'Set SMTP env vars or configure sendmail in MATLAB preferences.'], ME.message);
+        end
+    end
+end
+
+function configure_sendmail_from_env()
+    % Optional SMTP auto-configuration from environment variables:
+    %   MT_SBD_SMTP_SERVER       (e.g. smtp.gmail.com)
+    %   MT_SBD_SMTP_PORT         (e.g. 465 or 587)
+    %   MT_SBD_SMTP_USERNAME     (sender/login email)
+    %   MT_SBD_SMTP_PASSWORD     (app password/token)
+    %   MT_SBD_SMTP_SENDER       (optional; defaults to username)
+    %   MT_SBD_SMTP_USE_SSL      (optional: 0/1; default 1 for port 465)
+    %   MT_SBD_SMTP_USE_STARTTLS (optional: 0/1; default 1 for port 587)
+    smtp_server = getenv('MT_SBD_SMTP_SERVER');
+    smtp_port_str = getenv('MT_SBD_SMTP_PORT');
+    smtp_username = getenv('MT_SBD_SMTP_USERNAME');
+    smtp_password = getenv('MT_SBD_SMTP_PASSWORD');
+    smtp_sender = getenv('MT_SBD_SMTP_SENDER');
+    use_ssl_str = getenv('MT_SBD_SMTP_USE_SSL');
+    use_starttls_str = getenv('MT_SBD_SMTP_USE_STARTTLS');
+
+    if isempty(smtp_server) || isempty(smtp_username) || isempty(smtp_password)
+        % Respect existing MATLAB sendmail configuration.
+        return;
+    end
+
+    if isempty(smtp_sender)
+        smtp_sender = smtp_username;
+    end
+
+    if isempty(smtp_port_str)
+        smtp_port = 465;
+    else
+        smtp_port = str2double(smtp_port_str);
+        if isnan(smtp_port) || smtp_port <= 0
+            error('Invalid MT_SBD_SMTP_PORT: %s', smtp_port_str);
+        end
+    end
+
+    use_ssl = default_bool_from_port(use_ssl_str, smtp_port == 465);
+    use_starttls = default_bool_from_port(use_starttls_str, smtp_port == 587);
+
+    setpref('Internet', 'E_mail', smtp_sender);
+    setpref('Internet', 'SMTP_Server', smtp_server);
+    setpref('Internet', 'SMTP_Username', smtp_username);
+    setpref('Internet', 'SMTP_Password', smtp_password);
+
+    props = java.lang.System.getProperties;
+    props.setProperty('mail.smtp.auth', 'true');
+    props.setProperty('mail.smtp.port', num2str(smtp_port));
+    props.setProperty('mail.smtp.socketFactory.port', num2str(smtp_port));
+    if use_ssl
+        props.setProperty('mail.smtp.socketFactory.class', 'javax.net.ssl.SSLSocketFactory');
+    else
+        props.remove('mail.smtp.socketFactory.class');
+    end
+    if use_starttls
+        props.setProperty('mail.smtp.starttls.enable', 'true');
+    else
+        props.setProperty('mail.smtp.starttls.enable', 'false');
+    end
+end
+
+function value = default_bool_from_port(raw_value, default_value)
+    if isempty(raw_value)
+        value = default_value;
+        return;
+    end
+    value = strcmp(raw_value, '1') || strcmpi(raw_value, 'true') || strcmpi(raw_value, 'yes');
 end

@@ -13,7 +13,7 @@
 % QPI: Fourier transformed dIdV data
 
 % Modified function load3dsall from supplied matlab code from Nanonis
-[header, par, I, dIdV, LockindIdV, bias, midV, QPI, LockinQPI] = load3dsall('QPImap012.3ds', 10);
+[header, par, I, dIdV, LockindIdV, bias, midV, QPI, LockinQPI] = load3dsall('QPImap012.3ds', 3);
 xsize = header.grid_dim(1);
 ysize = header.grid_dim(2);
 elayer = header.points;
@@ -29,7 +29,7 @@ preprocessing_params = struct();
 data_carried = data_original;
 rangetype='dynamic';
 figure;
-d3gridDisplay(data_carried,r85angetype);
+d3gridDisplay(data_carried,rangetype);
 preprocessing_params.slice_normalize = input('slice to normalize: ');
 
 %% 2.1: Remove bragg peaks
@@ -119,5 +119,5 @@ preprocessing_params.real_space_direction = 'horizontal';
 [Y] = normalizeBackgroundToZeroMean3D(data_carried, rangetype, preprocessing_params.slice_normalize);
 
 %% 3. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Save the preprocessed data~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-save('ZrSiTe0304_FULL.mat', 'data_original', 'Y', 'data_cropped','data_masked',"energy_range", 'preprocessing_params')
+save('ZrSiTe0528_FULL.mat', 'data_original', 'Y', 'data_cropped','data_masked',"energy_range", "data_streakremoved", 'preprocessing_params')
 

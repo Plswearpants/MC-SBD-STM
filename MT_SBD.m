@@ -73,9 +73,8 @@ function [ Aout, Xout, bout, extras ] = MT_SBD( Y, k, params, dispfun, kernel_in
     kernel_num = size(k,1);
     mu = 10^-6;
     
-    % Update the configuration file with the new max_iteration
-    update_config('Xsolve_config.mat', 'MAXIT', Max_iteration, 'Xsolve_config_tunable.mat');
-    update_config('Asolve_config.mat','options.maxiter', Max_iteration, 'Asolve_config_tunable.mat');
+    % Update tunable solver configs with absolute paths to avoid path issues.
+    ensure_tunable_configs(Max_iteration, params);
     
     %% Phase I: Initialization and First Iteration with demixing applied
     fprintf('PHASE I: Initialization and First Iteration\n');
@@ -313,4 +312,82 @@ function [ Aout, Xout, bout, extras ] = MT_SBD( Y, k, params, dispfun, kernel_in
     
     % Store runtime in extras
     extras.runtime = total_runtime;
+end
+
+function ensure_tunable_configs(max_iteration, params)
+    repo_root = fileparts(mfilename('fullpath'));
+    run_env_dir = resolve_run_env_dir(params);
+
+    if isempty(run_env_dir)
+        config_dir = fullfile(repo_root, 'config');
+        tunable_dir = fullfile(repo_root, 'examples');
+    else
+        config_dir = fullfile(run_env_dir, 'config');
+        tunable_dir = config_dir;
+        if ~exist(config_dir, 'dir')
+            mkdir(config_dir);
+        end
+        setappdata(0, 'MT_SBD_RUN_ENV', run_env_dir);
+        setenv('MT_SBD_RUN_ENV', run_env_dir);
+    end
+
+    xsolve_base = fullfile(config_dir, 'Xsolve_config.mat');
+    asolve_base = fullfile(config_dir, 'Asolve_config.mat');
+    xsolve_tunable = fullfile(tunable_dir, 'Xsolve_config_tunable.mat');
+    asolve_tunable = fullfile(tunable_dir, 'Asolve_config_tunable.mat');
+
+    if ~exist(xsolve_base, 'file') || ~exist(asolve_base, 'file')
+        repo_xsolve_base = fullfile(repo_root, 'config', 'Xsolve_config.mat');
+        repo_asolve_base = fullfile(repo_root, 'config', 'Asolve_config.mat');
+
+        if ~exist(repo_xsolve_base, 'file') || ~exist(repo_asolve_base, 'file')
+            default_config_settings('quiet');
+        end
+
+        if ~exist(xsolve_base, 'file')
+            copyfile(repo_xsolve_base, xsolve_base);
+        end
+        if ~exist(asolve_base, 'file')
+            copyfile(repo_asolve_base, asolve_base);
+        end
+    end
+
+    apply_config_update(xsolve_base, 'MAXIT', max_iteration, xsolve_tunable);
+    apply_config_update(asolve_base, 'options.maxiter', max_iteration, asolve_tunable);
+end
+
+function run_env_dir = resolve_run_env_dir(params)
+    run_env_dir = '';
+    if nargin >= 1 && isstruct(params) && isfield(params, 'run_env_dir') && ~isempty(params.run_env_dir)
+        run_env_dir = params.run_env_dir;
+        return;
+    end
+    if isappdata(0, 'MT_SBD_RUN_ENV')
+        run_env_dir = getappdata(0, 'MT_SBD_RUN_ENV');
+        if ~isempty(run_env_dir)
+            return;
+        end
+    end
+    run_env_dir = getenv('MT_SBD_RUN_ENV');
+end
+
+function apply_config_update(config_file, param_path, new_value, new_file_name)
+    if exist('update_config', 'file') == 2
+        update_config(config_file, param_path, new_value, new_file_name);
+        return;
+    end
+
+    % Fallback when update_config.m is not on path.
+    if ~exist(config_file, 'file')
+        error('Config file %s does not exist.', config_file);
+    end
+
+    config = load(config_file);
+    fields = strsplit(param_path, '.');
+    if numel(fields) == 1
+        config.(fields{1}) = new_value;
+    else
+        config = setfield(config, fields{:}, new_value); %#ok<SFLD>
+    end
+    save(new_file_name, '-struct', 'config');
 end

@@ -1,0 +1,4 @@
+MT-SBD input manifest
+shared_input_dir=C:\Users\CAD\Documents\GitHub\MT-SBD-STM\runtime\all_inputs
+copy_input_files=0
+registered_inputs:

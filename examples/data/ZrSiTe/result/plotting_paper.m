@@ -31,13 +31,13 @@ ax1 = subplot(2,2,1);
 imagesc(A1_ref{1});axis square; colormap(ax1,'gray');
 set(ax1, 'XTick', [], 'YTick', []);
 ax2 = subplot(2,2,2);
-imagesc(qpiCalculate(A1_ref{1}));axis square; colormap(ax2,'invgray');
+imagesc(qpiCalculate(A1_ref{1},484));axis square; colormap(ax2,'invgray');
 set(ax2, 'XTick', [], 'YTick', [], 'Clim', clipEdgeIntensity(qpiCalculate(A1_ref{1}), 1))
 ax3 = subplot(2,2,3);
 imagesc(A1_ref{2});axis square; colormap(ax3, 'gray');
 set(ax3, 'XTick', [], 'YTick', [])
 ax4 = subplot(2,2,4);
-imagesc(qpiCalculate(A1_ref{2}));axis square; colormap(ax4,'invgray');
+imagesc(qpiCalculate(A1_ref{2},484));axis square; colormap(ax4,'invgray');
 set(ax4, 'XTick', [], 'YTick', [], 'Clim', clipEdgeIntensity(qpiCalculate(A1_ref{2}), 1))
 
 %% Make components Figure 4
@@ -108,18 +108,20 @@ metrics2heat_by_snr_interpolated(metrics, 'combined', axis3_mode, 1, metric_colo
 metrics2heat_by_snr_interpolated(metrics, 'kernel', axis3_mode, 1, metric_colormap,contour_levels);
 
 %% Plot figure 4 subplots 
-
 %% Combine and preprocess Aout
 % setting parameters
 angle = 122.5741;
 target_size =[254,254];
+Y_xydim = size(Y, [1,2]);
 radius = 254/2;
-
-% load chosen runs
-filename1 = "Chosen_ZrSiTe0304_s1to41_k1234_ALL.mat";
-filename2 = "Chosen_ZrSiTe0304_s21to140_k12345_ALL.mat";
-filename3 = "Chosen_ZrSiTe0304_s100to200_k1234_ALL.mat";
-myVars = {"Aout_ALL","Xout_ALL","bout_ALL","ALL_extras"};
+%%
+% load chosen runs from user-selected folder and ordered index list
+num_blocks_to_load = 3;
+selected_filenames = chooseOrderedFilesFromFolder(num_blocks_to_load);
+filename1 = selected_filenames{1};
+filename2 = selected_filenames{2};
+filename3 = selected_filenames{3};
+myVars = {"Y_used","Aout_ALL","Xout_ALL","bout_ALL","ALL_extras"};
 
 data = struct();
 data.block1 = load(filename1,myVars{:});
@@ -127,90 +129,89 @@ data.block2 = load(filename2,myVars{:});
 data.block3 = load(filename3,myVars{:});
 
 %% Merge Aout_ALL from all blocks
-Aout = zeros(80,80,200,5);
-param = struct();
-param.block1slices = 1:20;
-param.block2slices = 1:120;
-param.block3slices = 41:100;
+[Aout, param] = mergeAoutBlocksManualCutoff(data, selected_filenames);
 
-% from block1
-for i = 1:4
-    Aout(:,:,param.block1slices,i)=data.block1.Aout_ALL{i,1}(:,:,param.block1slices);
-end
-% from block2
-for i = 1:5
-    Aout(:,:,param.block2slices+20,i)=data.block2.Aout_ALL{i,1}(:,:,param.block2slices);
-end
-% from block3
-for i = 1:4
-    Aout(:,:,param.block3slices+100,i)=data.block3.Aout_ALL{i,1}(:,:,param.block3slices);
+% Use one shared observation volume (do not stitch observations).
+if ~exist('Y', 'var') || isempty(Y)
+    if exist('Y_used', 'var') && ~isempty(Y_used)
+        Y = Y_used;
+    elseif isfield(data.block1, 'Y_used') && ~isempty(data.block1.Y_used)
+        Y = data.block1.Y_used;
+    else
+        error('Shared observation Y is unavailable. Please define Y or Y_used.');
+    end
 end
 
 %% pad QPI
-pad_QPI_each = zeros([size(Aout,4),[484,484,200]]);
+num_total_slices = size(Aout,3);
+Aout_qpi_each = zeros([size(Aout,4),[Y_xydim,num_total_slices]]);
 for i = 1:size(Aout,4)
-    pad_QPI_each(i,:,:,:) = qpiCalculate(Aout(:,:,:,i),size(Y_used,[1,2]));
+    Aout_qpi_each(i,:,:,:) = qpiCalculate(Aout(:,:,:,i),size(Y,[1,2]));
 end
 
 %% Symmetrize the data
-[Y_rec_symm, Y_rec_symm_45,tform0, angle]   = Symmetrizing2(squeeze(qpiCalculate(Y_used)),'',angle, 'default');
-[A1_rec_symm, A1_rec_symm_45,tform1, angle] = Symmetrizing2(squeeze(pad_QPI_each(1,:,:,:)),'',angle, 'default');
-[A2_rec_symm, A2_rec_symm_45,tform2, angle] = Symmetrizing2(squeeze(pad_QPI_each(2,:,:,:)),'',angle, 'default');
-[A3_rec_symm, A3_rec_symm_45,tform1, angle] = Symmetrizing2(squeeze(pad_QPI_each(3,:,:,:)),'',angle, 'default',true);
-[A4_rec_symm, A4_rec_symm_45,tform1, angle] = Symmetrizing2(squeeze(pad_QPI_each(4,:,:,:)),'',angle, 'default',true);
-[A5_rec_symm, A5_rec_symm_45,tform1, angle] = Symmetrizing2(squeeze(pad_QPI_each(5,:,:,:)),'',angle, 'default');
+[Y_qpi_symm, Y_qpi_symm_45,tform0, angle]   = Symmetrizing2(squeeze(qpiCalculate(Y)),'',angle, 'default');
+[A1_qpi_symm, A1_qpi_symm_45,tform1, angle] = Symmetrizing2(squeeze(Aout_qpi_each(1,:,:,:)),'',angle, 'default');
+[A2_qpi_symm, A2_qpi_symm_45,tform2, angle] = Symmetrizing2(squeeze(Aout_qpi_each(2,:,:,:)),'',angle, 'default');
+[A3_qpi_symm, A3_qpi_symm_45,tform1, angle] = Symmetrizing2(squeeze(Aout_qpi_each(3,:,:,:)),'',angle, 'default',true);
+[A4_qpi_symm, A4_qpi_symm_45,tform1, angle] = Symmetrizing2(squeeze(Aout_qpi_each(4,:,:,:)),'',angle, 'default',true);
+[A5_qpi_symm, A5_qpi_symm_45,tform1, angle] = Symmetrizing2(squeeze(Aout_qpi_each(5,:,:,:)),'',angle, 'default');
 
 %% Crop symmetrized output to match QPI_rec x-y size
 
-Y_cropped = centerCropToTargetSize(Y_rec_symm_45, target_size);
-A1_cropped = centerCropToTargetSize(A1_rec_symm_45, target_size);
-A2_cropped = centerCropToTargetSize(A2_rec_symm_45, target_size);
-A3_cropped = centerCropToTargetSize(A3_rec_symm_45, target_size);
-A4_cropped = centerCropToTargetSize(A4_rec_symm_45, target_size);
-A5_cropped = centerCropToTargetSize(A5_rec_symm_45, target_size);
+Y_qpi_cropped = centerCropToTargetSize(Y_qpi_symm_45, [254,254]);
+A1_qpi_cropped = centerCropToTargetSize(A1_qpi_symm_45, target_size);
+A2_qpi_cropped = centerCropToTargetSize(A2_qpi_symm_45, target_size);
+A3_qpi_cropped = centerCropToTargetSize(A3_qpi_symm_45, target_size);
+A4_qpi_cropped = centerCropToTargetSize(A4_qpi_symm_45, target_size);
+A5_qpi_cropped = centerCropToTargetSize(A5_qpi_symm_45, target_size);
 
 %% Compare A1,A2 and Y in q-space
-QPI_Y_norm = normalizeForDisplay(Y_cropped);
-A1_cropped_norm = normalizeForDisplay(A1_cropped);
-A2_cropped_norm = normalizeForDisplay(A2_cropped);
-A3_cropped_norm = normalizeForDisplay(A3_cropped);
-A4_cropped_norm = normalizeForDisplay(A4_cropped);
-A5_cropped_norm = normalizeForDisplay(A5_cropped);
-comparison = [QPI_Y_norm, A1_cropped_norm, A2_cropped_norm,A3_cropped_norm, A4_cropped_norm,A5_cropped_norm];
+Y_qpi_norm = normalizeForDisplay(Y_qpi_cropped);
+A1_qpi_cropped_norm = normalizeForDisplay(A1_qpi_cropped);
+A2_qpi_cropped_norm = normalizeForDisplay(A2_qpi_cropped);
+A3_qpi_cropped_norm = normalizeForDisplay(A3_qpi_cropped);
+A4_qpi_cropped_norm = normalizeForDisplay(A4_qpi_cropped);
+A5_qpi_cropped_norm = normalizeForDisplay(A5_qpi_cropped);
+comparison_qpi = [Y_qpi_norm, A1_qpi_cropped_norm, A2_qpi_cropped_norm, ...
+    A3_qpi_cropped_norm, A4_qpi_cropped_norm, A5_qpi_cropped_norm];
 
 % Package key outputs into a result struct and clear intermediates
 result = struct();
-result.Y_cropped = Y_cropped;
-result.A_cropped = zeros([size(A1_cropped),5]);
-result.A_cropped(:,:,:,1) = A1_cropped;
-result.A_cropped(:,:,:,2) = A2_cropped;
-result.A_cropped(:,:,:,3) = A3_cropped;
-result.A_cropped(:,:,:,4) = A4_cropped;
-result.A_cropped(:,:,:,5) = A5_cropped;
-result.comparison = comparison;
+result.Y = Y;
+result.Aout = Aout;
+result.Y_qpi = Y_qpi_cropped;
+result.Aout_qpi = zeros([size(A1_qpi_cropped),5]);
+result.Aout_qpi(:,:,:,1) = A1_qpi_cropped;
+result.Aout_qpi(:,:,:,2) = A2_qpi_cropped;
+result.Aout_qpi(:,:,:,3) = A3_qpi_cropped;
+result.Aout_qpi(:,:,:,4) = A4_qpi_cropped;
+result.Aout_qpi(:,:,:,5) = A5_qpi_cropped;
+result.comparison_qpi = comparison_qpi;
 
-clear pad_QPI_each ...
-      Y_rec_symm Y_rec_symm_45 tform0 tform1 tform2 ...
-      A1_rec_symm A1_rec_symm_45 ...
-      A2_rec_symm A2_rec_symm_45 ...
-      A3_rec_symm A3_rec_symm_45 ...
-      A4_rec_symm A4_rec_symm_45 ...
-      A5_rec_symm A5_rec_symm_45 ...
-      QPI_Y_norm A1_cropped_norm A2_cropped_norm ...
-      A3_cropped_norm A4_cropped_norm A5_cropped_norm ...
-      Y_cropped A1_cropped A2_cropped A3_cropped A4_cropped A5_cropped comparison;
+figure; d3gridDisplay(result.comparison_qpi, 'dynamic', -1)
 
-figure; d3gridDisplay(result.comparison, 'dynamic', -1)
+%%
+clear Aout_qpi_each ...
+      Y_qpi_symm Y_qpi_symm_45 tform0 tform1 tform2 ...
+      A1_qpi_symm A1_qpi_symm_45 ...
+      A2_qpi_symm A2_qpi_symm_45 ...
+      A3_qpi_symm A3_qpi_symm_45 ...
+      A4_qpi_symm A4_qpi_symm_45 ...
+      A5_qpi_symm A5_qpi_symm_45 ...
+      Y_qpi_norm A1_qpi_cropped_norm A2_qpi_cropped_norm ...
+      A3_qpi_cropped_norm A4_qpi_cropped_norm A5_qpi_cropped_norm ...
+      Y_qpi_cropped A1_qpi_cropped A2_qpi_cropped A3_qpi_cropped A4_qpi_cropped A5_qpi_cropped comparison_qpi;
 
 %% Inspect rotating slices of Aout
 naked = true;
 energy_range = [-800,800]; % range in meV
 % Create rotational slices
-[~, A1_slice_angles, ~] = rotationalslices(result.A_cropped(:,:,:,1), 'global', 1, radius, naked, energy_range);
-[~, A2_slice_angles, ~] = rotationalslices(result.A_cropped(:,:,:,2), 'global', 1, radius, naked, energy_range);
-[~, A3_slice_angles, ~] = rotationalslices(result.A_cropped(:,:,:,3), 'global', 1, radius, naked, energy_range);
-[~, A4_slice_angles, ~] = rotationalslices(result.A_cropped(:,:,:,4), 'global', 1, radius, naked, energy_range);
-[~, A5_slice_angles, ~] = rotationalslices(result.A_cropped(:,:,:,5), 'global', 1, radius, naked, energy_range);
+[~, A1_slice_angles, ~] = rotationalslices(result.Aout_qpi(:,:,:,1), 'global', 1, radius, naked, energy_range);
+[~, A2_slice_angles, ~] = rotationalslices(result.Aout_qpi(:,:,:,2), 'global', 1, radius, naked, energy_range);
+[~, A3_slice_angles, ~] = rotationalslices(result.Aout_qpi(:,:,:,3), 'global', 1, radius, naked, energy_range);
+[~, A4_slice_angles, ~] = rotationalslices(result.Aout_qpi(:,:,:,4), 'global', 1, radius, naked, energy_range);
+[~, A5_slice_angles, ~] = rotationalslices(result.Aout_qpi(:,:,:,5), 'global', 1, radius, naked, energy_range);
 
 % Save all inputs needed by the Figure 5 block
 fig5_inputs = struct();
@@ -237,10 +238,10 @@ nos = 8;
 energy_range = [-800,800]; % range in meV
 
 % Resolve Aout for defect type 1 (robust to 3D/4D storage in result struct)
-if ndims(result.A_cropped) >= 4
-    Aout_type1 = result.A_cropped(:,:,:,1);
+if ndims(result.Aout_qpi) >= 4
+    Aout_type1 = result.Aout_qpi(:,:,:,1);
 else
-    Aout_type1 = result.A_cropped;
+    Aout_type1 = result.Aout_qpi;
 end
 
 % Energy axis (meV) for indexing slices
@@ -381,4 +382,171 @@ function [sum_points, num_points] = collectAboveThreshold(Xout, threshold)
     selected_points = Xout(Xout > threshold);
     sum_points = sum(selected_points(:));
     num_points = numel(selected_points);
+end
+
+%% -------------------------------------------------------------------------
+% Helper: choose MAT files from a folder in a user-defined load order.
+% Example order input: [2 5 1]
+function selected_paths = chooseOrderedFilesFromFolder(num_required)
+    if nargin < 1
+        num_required = 3;
+    end
+
+    folder_path = uigetdir(pwd, 'Select folder containing run result MAT files');
+    if isequal(folder_path, 0)
+        error('No folder selected.');
+    end
+
+    entries = dir(fullfile(folder_path, '*.mat'));
+    if isempty(entries)
+        error('Selected folder has no files: %s', folder_path);
+    end
+
+    fprintf('\nAvailable files in %s:\n', folder_path);
+    for i = 1:numel(entries)
+        fprintf('  %d) %s\n', i, entries(i).name);
+    end
+
+    prompt = sprintf(['Enter ordered file indices for %d blocks ', ...
+        '(e.g. [2 5 1]): '], num_required);
+    idx = input(prompt);
+
+    if isempty(idx) || ~isnumeric(idx)
+        error('You must provide numeric indices, e.g. [2 5 1].');
+    end
+    idx = idx(:).';
+    if numel(idx) ~= num_required
+        error('Expected exactly %d indices, got %d.', num_required, numel(idx));
+    end
+    if any(idx < 1) || any(idx > numel(entries)) || any(mod(idx,1) ~= 0)
+        error('Indices must be integers between 1 and %d.', numel(entries));
+    end
+
+    selected_paths = cell(1, num_required);
+    for i = 1:num_required
+        selected_paths{i} = fullfile(folder_path, entries(idx(i)).name);
+    end
+
+    fprintf('Chosen load order:\n');
+    for i = 1:num_required
+        fprintf('  block%d <- %s\n', i, selected_paths{i});
+    end
+    fprintf('\n');
+end
+
+%% -------------------------------------------------------------------------
+% Helper: merge selected blocks using strict manual global cutoffs.
+% File names must contain a token like s21to141.
+function [Aout, param] = mergeAoutBlocksManualCutoff(data, selected_filenames)
+    block_fields = fieldnames(data);
+    num_blocks = numel(block_fields);
+    if num_blocks < 2
+        error('Need at least 2 blocks to stitch.');
+    end
+
+    meta = struct([]);
+    max_end = 0;
+    for b = 1:num_blocks
+        block_name = block_fields{b};
+        block_data = data.(block_name);
+        [s_start, s_end] = parseSliceRangeFromFilename(selected_filenames{b});
+        expected_local = s_end - s_start + 1;
+        actual_local = size(block_data.Aout_ALL{1,1}, 3);
+        if actual_local ~= expected_local
+            error(['Block %d slice count mismatch. Filename implies %d slices ', ...
+                '(%d:%d), but data has %d slices.'], ...
+                b, expected_local, s_start, s_end, actual_local);
+        end
+        meta(b).block_name = block_name; %#ok<AGROW>
+        meta(b).path = selected_filenames{b}; %#ok<AGROW>
+        meta(b).s_start = s_start; %#ok<AGROW>
+        meta(b).s_end = s_end; %#ok<AGROW>
+        meta(b).num_local = actual_local; %#ok<AGROW>
+        meta(b).num_kernels = numel(block_data.Aout_ALL); %#ok<AGROW>
+        max_end = max(max_end, s_end);
+    end
+
+    fprintf('\nDetected block slice ranges (from filename):\n');
+    for b = 1:num_blocks
+        fprintf('  block%d: [%d:%d]  file=%s\n', ...
+            b, meta(b).s_start, meta(b).s_end, meta(b).path);
+    end
+
+    total_slices = input(sprintf('Enter total global slice count (e.g. %d): ', max_end));
+    validateattributes(total_slices, {'numeric'}, {'scalar','integer','positive','finite'});
+
+    cutoff_prompt = sprintf(['Enter %d increasing cutoff indices for %d blocks ', ...
+        '(e.g. [20 140] for 3 blocks): '], num_blocks-1, num_blocks);
+    cutoffs = input(cutoff_prompt);
+    if isempty(cutoffs) || ~isnumeric(cutoffs)
+        error('Cutoffs must be numeric, e.g. [20 140].');
+    end
+    cutoffs = cutoffs(:).';
+    if numel(cutoffs) ~= num_blocks-1
+        error('Expected exactly %d cutoffs, got %d.', num_blocks-1, numel(cutoffs));
+    end
+    if any(mod(cutoffs,1) ~= 0) || any(diff(cutoffs) <= 0)
+        error('Cutoffs must be strictly increasing integers.');
+    end
+    if cutoffs(1) < 1 || cutoffs(end) >= total_slices
+        error('Cutoffs must satisfy 1 <= cutoffs < total_slices.');
+    end
+
+    segment_starts = [1, cutoffs + 1];
+    segment_ends = [cutoffs, total_slices];
+
+    for b = 1:num_blocks
+        g_start = segment_starts(b);
+        g_end = segment_ends(b);
+        if g_start < meta(b).s_start || g_end > meta(b).s_end
+            error(['Invalid cutoff for block%d. Assigned global segment [%d:%d] ', ...
+                'is not fully covered by block range [%d:%d].'], ...
+                b, g_start, g_end, meta(b).s_start, meta(b).s_end);
+        end
+    end
+
+    sample_block = data.(block_fields{1});
+    [h, w, ~] = size(sample_block.Aout_ALL{1,1});
+    num_kernels_total = max([meta.num_kernels]);
+    Aout = zeros(h, w, total_slices, num_kernels_total);
+
+    % Stitch Aout strictly by manual cutoffs.
+    for b = 1:num_blocks
+        block_data = data.(block_fields{b});
+        g_idx = segment_starts(b):segment_ends(b);
+        l_idx = g_idx - meta(b).s_start + 1;
+        for k = 1:numel(block_data.Aout_ALL)
+            Aout(:,:,g_idx,k) = block_data.Aout_ALL{k,1}(:,:,l_idx);
+        end
+    end
+
+    param = struct();
+    param.total_slices = total_slices;
+    param.cutoffs = cutoffs;
+    param.segment_starts = segment_starts;
+    param.segment_ends = segment_ends;
+    param.meta = meta;
+
+    fprintf('Manual stitch segments applied:\n');
+    for b = 1:num_blocks
+        fprintf('  block%d -> global [%d:%d] using local [%d:%d]\n', ...
+            b, segment_starts(b), segment_ends(b), ...
+            segment_starts(b)-meta(b).s_start+1, segment_ends(b)-meta(b).s_start+1);
+    end
+    fprintf('\n');
+end
+
+%% -------------------------------------------------------------------------
+% Helper: parse "sXtoY" slice token from filename.
+function [s_start, s_end] = parseSliceRangeFromFilename(file_path)
+    [~, name, ~] = fileparts(file_path);
+    tok = regexp(name, 's(\d+)to(\d+)', 'tokens', 'once');
+    if isempty(tok)
+        error('Filename must contain token like s1to41: %s', file_path);
+    end
+    s_start = str2double(tok{1});
+    s_end = str2double(tok{2});
+    if isnan(s_start) || isnan(s_end) || s_start < 1 || s_end < s_start
+        error('Invalid slice token in filename: %s', file_path);
+    end
 end

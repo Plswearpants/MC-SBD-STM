@@ -16,7 +16,8 @@ if nargin < 5
     error('Not enough input arguments. Y, A, lambda, mu, and max_iteration are required.');
 end
 
-load([fileparts(mfilename('fullpath')) '/../examples/Xsolve_config_tunable.mat']); %#ok<*LOAD>
+config_path = resolve_tunable_config('Xsolve_config_tunable.mat');
+load(config_path); %#ok<*LOAD>
 %print("load")
 % Initialize variables and function handles:
 fpath = fileparts(mfilename('fullpath'));
