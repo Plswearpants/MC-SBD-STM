@@ -1,6 +1,9 @@
-function visualize_heatspace_details_properGen(dataset_metrics, mode)
+function visualize_heatspace_details_properGen(dataset_metrics, mode, enable_sigma_analysis)
     if nargin < 2 || isempty(mode)
         mode = 1;
+    end
+    if nargin < 3 || isempty(enable_sigma_analysis)
+        enable_sigma_analysis = false;
     end
     loader_mode = get_loader_axis_mode(dataset_metrics);
 
@@ -121,6 +124,35 @@ function visualize_heatspace_details_properGen(dataset_metrics, mode)
     % Check if data exists for this point
     if isempty(Aout) || isempty(Xout)
         error('No reconstruction data available for this parameter combination');
+    end
+
+    if enable_sigma_analysis
+        if ~exist('estimateKernelGaussianNoiseVsGT', 'file')
+            this_dir = fileparts(mfilename('fullpath'));
+            addpath(fullfile(this_dir, '..'));
+        end
+
+        [sigma_in, sigma_out, sigma_details] = estimateKernelGaussianNoiseVsGT( ...
+            A0, Aout, A0_noiseless, 'sigmaMethod', 'mad');
+        sigma_denoising = safe_ratio(sigma_in, sigma_out); % >1 means output less noisy
+
+        fprintf('\nKernel Noise Amplitude (vs GT) using shift+gain+bias fit:\n');
+        fprintf('  Median sigma_in : %.4g\n', median(sigma_in(:), 'omitnan'));
+        fprintf('  Median sigma_out: %.4g\n', median(sigma_out(:), 'omitnan'));
+        fprintf('  Median denoising (sigma_in/sigma_out): %.4g\n', ...
+            median(sigma_denoising(:), 'omitnan'));
+        disp('  sigma_in matrix:');
+        disp(sigma_in);
+        disp('  sigma_out matrix:');
+        disp(sigma_out);
+        disp('  sigma denoising matrix (sigma_in ./ sigma_out):');
+        disp(sigma_denoising);
+
+        extras.kernel_sigma_in = sigma_in;
+        extras.kernel_sigma_out = sigma_out;
+        extras.kernel_sigma_denoising = sigma_denoising;
+        extras.kernel_sigma_improvement = sigma_denoising; % legacy alias
+        extras.kernel_sigma_details = sigma_details;
     end
     
     % Add clean observation and demixing score to extras
@@ -286,3 +318,18 @@ function [x_proj,y_proj] = project_points(x,y,z,az,el)
     x_proj = x.*cos(az) + y.*sin(az);
     y_proj = x.*sin(az).*sin(el) + y.*cos(az).*sin(el) + z.*cos(el);
 end 
+
+function ratio = safe_ratio(sigma_in, sigma_out)
+    [nr, nc] = size(sigma_in);
+    [dr, dc] = size(sigma_out);
+    r = min(nr, dr);
+    c = min(nc, dc);
+    ratio = nan(max(nr, dr), max(nc, dc));
+
+    in_use = sigma_in(1:r, 1:c);
+    out_use = sigma_out(1:r, 1:c);
+    valid = isfinite(in_use) & isfinite(out_use) & (abs(out_use) > eps);
+    tmp = nan(r, c);
+    tmp(valid) = in_use(valid) ./ out_use(valid);
+    ratio(1:r, 1:c) = tmp;
+end

@@ -85,11 +85,11 @@ function Y_reconstructed = visualizeResults(Y, A0, Aout, X0, Xout, bout, extras,
     axis image;
     sgtitle(['Original vs Reconstructed Image' idx_str]);
 
-    % 4. Convergence History
+    % 4. Convergence History (activation-only)
     figure('Name', 'Convergence History');
     
-    % Make it 3x1 subplot to include demixing metric
-    subplot(3,1,1);
+    % Make it 2x1 subplot: activation convergence + demixing metric
+    subplot(2,1,1);
     % Check if Phase II was performed
     phase2_performed = isfield(extras, 'phase2');
     maxIT = size(extras.phase1.kernel_quality_factors, 1);
@@ -109,23 +109,8 @@ function Y_reconstructed = visualizeResults(Y, A0, Aout, X0, Xout, bout, extras,
     legend(arrayfun(@(x) sprintf('Kernel %d', x), 1:num_kernels, 'UniformOutput', false));
     grid on;
 
-    subplot(3,1,2);
-    % Plot Kernel Quality Factors
-    plot(1:maxIT, extras.phase1.kernel_quality_factors, 'LineStyle', '-');
-    hold on;
-    % Phase II (if performed)
-    if phase2_performed
-        plot(maxIT:(maxIT+nrefine), extras.phase2.kernel_quality_factors, 'LineStyle', ':');
-    end
-    hold off;
-    title(['Kernel Quality Factors Convergence' idx_str]);
-    xlabel('Iteration');
-    ylabel('Quality Factor');
-    legend(arrayfun(@(x) sprintf('Kernel %d', x), 1:num_kernels, 'UniformOutput', false));
-    grid on;
-
     % Add Demixing Score Plot
-    subplot(3,1,3);
+    subplot(2,1,2);
     [demix_score, corr_matrix] = computeDemixingMetric(Xout);
     bar(1:num_kernels, corr_matrix, 'stacked');
     title(['Activation Separation Score: ' sprintf('%.3f', demix_score) idx_str]);

@@ -111,9 +111,9 @@ metrics2heat_by_snr_interpolated(metrics, 'kernel', axis3_mode, 1, metric_colorm
 %% Combine and preprocess Aout
 % setting parameters
 angle = 122.5741;
-target_size =[254,254];
+target_size =[245,245];
 Y_xydim = size(Y, [1,2]);
-radius = 254/2;
+radius = target_size(1)/2;
 %%
 % load chosen runs from user-selected folder and ordered index list
 num_blocks_to_load = 3;
@@ -121,15 +121,15 @@ selected_filenames = chooseOrderedFilesFromFolder(num_blocks_to_load);
 filename1 = selected_filenames{1};
 filename2 = selected_filenames{2};
 filename3 = selected_filenames{3};
-myVars = {"Y_used","Aout_ALL","Xout_ALL","bout_ALL","ALL_extras"};
+myVars = {"Y_used","Aout_ALL","Xout_ALL","bout_ALL","ALL_extras","A1_used"};
 
 data = struct();
 data.block1 = load(filename1,myVars{:});
 data.block2 = load(filename2,myVars{:});
 data.block3 = load(filename3,myVars{:});
 
-%% Merge Aout_ALL from all blocks
-[Aout, param] = mergeAoutBlocksManualCutoff(data, selected_filenames);
+%% Merge Aout_ALL and A1_used from all blocks
+[Aout, A1, param] = mergeAoutBlocksManualCutoff(data, selected_filenames);
 
 % Use one shared observation volume (do not stitch observations).
 if ~exist('Y', 'var') || isempty(Y)
@@ -159,7 +159,7 @@ end
 
 %% Crop symmetrized output to match QPI_rec x-y size
 
-Y_qpi_cropped = centerCropToTargetSize(Y_qpi_symm_45, [254,254]);
+Y_qpi_cropped = centerCropToTargetSize(Y_qpi_symm_45, target_size);
 A1_qpi_cropped = centerCropToTargetSize(A1_qpi_symm_45, target_size);
 A2_qpi_cropped = centerCropToTargetSize(A2_qpi_symm_45, target_size);
 A3_qpi_cropped = centerCropToTargetSize(A3_qpi_symm_45, target_size);
@@ -188,7 +188,7 @@ result.Aout_qpi(:,:,:,3) = A3_qpi_cropped;
 result.Aout_qpi(:,:,:,4) = A4_qpi_cropped;
 result.Aout_qpi(:,:,:,5) = A5_qpi_cropped;
 result.comparison_qpi = comparison_qpi;
-
+%%
 figure; d3gridDisplay(result.comparison_qpi, 'dynamic', -1)
 
 %%
@@ -209,9 +209,9 @@ energy_range = [-800,800]; % range in meV
 % Create rotational slices
 [~, A1_slice_angles, ~] = rotationalslices(result.Aout_qpi(:,:,:,1), 'global', 1, radius, naked, energy_range);
 [~, A2_slice_angles, ~] = rotationalslices(result.Aout_qpi(:,:,:,2), 'global', 1, radius, naked, energy_range);
-[~, A3_slice_angles, ~] = rotationalslices(result.Aout_qpi(:,:,:,3), 'global', 1, radius, naked, energy_range);
-[~, A4_slice_angles, ~] = rotationalslices(result.Aout_qpi(:,:,:,4), 'global', 1, radius, naked, energy_range);
-[~, A5_slice_angles, ~] = rotationalslices(result.Aout_qpi(:,:,:,5), 'global', 1, radius, naked, energy_range);
+%[~, A3_slice_angles, ~] = rotationalslices(result.Aout_qpi(:,:,:,3), 'global', 1, radius, naked, energy_range);
+%[~, A4_slice_angles, ~] = rotationalslices(result.Aout_qpi(:,:,:,4), 'global', 1, radius, naked, energy_range);
+%[~, A5_slice_angles, ~] = rotationalslices(result.Aout_qpi(:,:,:,5), 'global', 1, radius, naked, energy_range);
 
 % Save all inputs needed by the Figure 5 block
 fig5_inputs = struct();
@@ -221,11 +221,8 @@ fig5_inputs.naked = true;
 fig5_inputs.nos = 8;
 fig5_inputs.energy_range = [-800, 800];
 fig5_inputs.target_energies = [280, 220, 164];
-fig5_save_path = fullfile(fileparts(mfilename('fullpath')), 'figure5_inputs.mat');
-save(fig5_save_path, 'fig5_inputs');
-
-
-%% Supplementary comparison between crop and Aout
+%fig5_save_path = fullfile(fileparts(mfilename('fullpath')), 'figure5_inputs.mat');
+%save(fig5_save_path, 'fig5_inputs');
 
 %% Figure 5 (need Aout)
 % figure 5 contains subplots: 
@@ -286,6 +283,185 @@ for ii = 1:numel(target_energies)
         ylabel('q_y pixel');
     end
 end
+
+%% ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Supplmentary Figures~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+%% SI -- Compare the SNR before and after MCSBD_synthetic data
+if ~exist('build_denoising_sigma_metrics', 'file') || ~exist('metrics2heat_by_snr_interpolated', 'file')
+    script_dir = fileparts(mfilename('fullpath'));
+    addpath(fullfile(script_dir, '..', '..', '..', '..', 'Dong_func'));
+    addpath(fullfile(script_dir, '..', '..', '..', '..', 'Dong_func', 'phase_space'));
+end
+if ~exist('metrics', 'var') || isempty(metrics)
+    error('SI synthetic comparison requires ''metrics'' in workspace.');
+end
+
+si_axis3_mode = 2;
+si_activation_gate = 0.95;
+si_metric_colormap = slanCM('viridis');
+si_snr_targets = [3, 5, 7];
+si_font_default = 18; % default large font
+si_font_size = input(sprintf('Font size for SI synthetic plots (default=%d): ', si_font_default));
+if isempty(si_font_size)
+    si_font_size = si_font_default;
+end
+si_font_size = double(si_font_size);
+si_side_ratio_default = 0.2233;
+si_side_ratio_max = input(sprintf(['Side-length-ratio cutoff for SI 1/sqrt(Nobs) scatter ' ...
+    '(default=%.4f): '], si_side_ratio_default));
+if isempty(si_side_ratio_max)
+    si_side_ratio_max = si_side_ratio_default;
+end
+si_side_ratio_max = double(si_side_ratio_max);
+
+% 1) sigma ratio heatmap style plot (per-SNR slices)
+if ~isfield(metrics, 'denoising_sigma_ratio_final') || isempty(metrics.denoising_sigma_ratio_final) || ...
+        ~isfield(metrics, 'denoising_sigma_ratio_per_kernel') || isempty(metrics.denoising_sigma_ratio_per_kernel)
+    metrics = build_denoising_sigma_metrics(metrics, si_activation_gate, ...
+        'enableAlignment', false, ...
+        'energyStride', 2, ...
+        'sigmaMethod', 'mad');
+end
+metrics2heat_by_snr_interpolated(metrics, 'denoising', si_axis3_mode, 1, si_metric_colormap);
+set(findall(gcf, '-property', 'FontSize'), 'FontSize', si_font_size);
+
+% 2) 1/sqrt(Nobs) vs sigma_out by side length ratio (<= 0.2233), per-kernel
+if ~isfield(metrics, 'Nobs_per_kernel_at_axis3') || isempty(metrics.Nobs_per_kernel_at_axis3)
+    nobs_per_kernel_tmp = cell(size(metrics.X0));
+    for linear_idx = 1:numel(metrics.X0)
+        X0_slot = metrics.X0{linear_idx};
+        if isempty(X0_slot), continue; end
+        if iscell(X0_slot)
+            if isempty(X0_slot), continue; end
+            X0_slot = X0_slot{1};
+        end
+        if ~isnumeric(X0_slot), continue; end
+        if ndims(X0_slot) == 2
+            nobs_per_kernel_tmp{linear_idx} = nnz(X0_slot ~= 0);
+        elseif ndims(X0_slot) >= 3
+            nk = size(X0_slot, 3);
+            cnt = zeros(1, nk);
+            for k = 1:nk
+                cnt(k) = nnz(X0_slot(:,:,k) ~= 0);
+            end
+            nobs_per_kernel_tmp{linear_idx} = cnt;
+        end
+    end
+    metrics.Nobs_per_kernel_at_axis3 = nobs_per_kernel_tmp;
+end
+
+if isfield(metrics, 'side_length_ratio_values') && ...
+        isfield(metrics, 'Nobs_per_kernel_at_axis3') && ...
+        isfield(metrics, 'denoising_sigma_out_per_kernel') && ...
+        isfield(metrics, 'denoising_sigma_in_per_kernel')
+    side_vals = metrics.side_length_ratio_values(:)';
+    side_sel = find(side_vals <= si_side_ratio_max);
+    if isempty(side_sel)
+        warning('No side-length-ratio bins <= %.4f found for SI scatter plot.', si_side_ratio_max);
+    else
+        fprintf('SI side-ratio cutoff %.4f selects %d subplot bins.\n', si_side_ratio_max, numel(side_sel));
+        if abs(si_side_ratio_max - 0.2233) < 1e-10 && numel(side_sel) ~= 8
+            warning(['Expected 8 side-ratio subplots at cutoff 0.2233, but selected %d. ' ...
+                'Check side_length_ratio_values grid for this metrics set.'], numel(side_sel));
+        end
+        disp('Selected side_length_ratio values:');
+        disp(side_vals(side_sel));
+
+        snr_all = metrics.SNR_values(:)';
+        snr_idx = zeros(1, numel(si_snr_targets));
+        for i = 1:numel(si_snr_targets)
+            [~, snr_idx(i)] = min(abs(snr_all - si_snr_targets(i)));
+        end
+        snr_idx = unique(snr_idx, 'stable');
+
+        for si = 1:numel(snr_idx)
+            s = snr_idx(si);
+            nside = numel(side_sel);
+            [nrow, ncol] = choose_integer_subplot_layout(nside);
+            figure('Name', sprintf('SI 1/sqrt(Nobs) vs sigma_{out} by side ratio | SNR=%.2f', snr_all(s)), ...
+                'Position', [120 120 430*ncol 360*nrow]);
+
+            for jj = 1:nside
+                r = side_sel(jj);
+                subplot(nrow, ncol, jj);
+                nobs_cells = squeeze(metrics.Nobs_per_kernel_at_axis3(s, :, r, :));
+                sigma_out_cells = squeeze(metrics.denoising_sigma_out_per_kernel(s, :, r, :));
+                sigma_in_cells = squeeze(metrics.denoising_sigma_in_per_kernel(s, :, r, :));
+                x_by_kernel = {};
+                y_by_kernel = {};
+                s_by_kernel = {};
+
+                for ii = 1:numel(nobs_cells)
+                    n_k = nobs_cells{ii};
+                    d_k = sigma_out_cells{ii};
+                    s_k = sigma_in_cells{ii};
+                    if isempty(n_k) || isempty(d_k) || isempty(s_k), continue; end
+                    n_k = n_k(:);
+                    d_k = d_k(:);
+                    s_k = s_k(:);
+                    nk = min([numel(n_k), numel(d_k), numel(s_k)]);
+                    if nk < 1, continue; end
+                    for kk = 1:nk
+                        if numel(x_by_kernel) < kk || isempty(x_by_kernel{kk})
+                            x_by_kernel{kk} = n_k(kk);
+                            y_by_kernel{kk} = d_k(kk);
+                            s_by_kernel{kk} = s_k(kk);
+                        else
+                            x_by_kernel{kk}(end+1,1) = n_k(kk); %#ok<AGROW>
+                            y_by_kernel{kk}(end+1,1) = d_k(kk); %#ok<AGROW>
+                            s_by_kernel{kk}(end+1,1) = s_k(kk); %#ok<AGROW>
+                        end
+                    end
+                end
+
+                hold on;
+                num_k = numel(x_by_kernel);
+                cmap = lines(max(1, num_k));
+                x_all = [];
+                s_all = [];
+                for kk = 1:num_k
+                    if isempty(x_by_kernel{kk}) || isempty(y_by_kernel{kk}) || ...
+                            numel(s_by_kernel) < kk || isempty(s_by_kernel{kk}), continue; end
+                    xv = x_by_kernel{kk};
+                    yv = y_by_kernel{kk};
+                    sv = s_by_kernel{kk};
+                    valid = isfinite(xv) & isfinite(yv) & isfinite(sv) & (xv > 0);
+                    xv = xv(valid); yv = yv(valid); sv = sv(valid);
+                    if isempty(xv), continue; end
+                    xv_plot = 1 ./ sqrt(xv);
+                    scatter(xv_plot, yv, 20, 'filled', ...
+                        'MarkerFaceColor', cmap(kk,:), ...
+                        'MarkerFaceAlpha', 0.65, ...
+                        'DisplayName', sprintf('Kernel %d', kk));
+                    x_all = [x_all; xv_plot(:)]; %#ok<AGROW>
+                    s_all = [s_all; sv(:)]; %#ok<AGROW>
+                end
+                valid_h = isfinite(x_all) & isfinite(s_all) & (x_all > 0);
+                if any(valid_h)
+                    slope_hat = median(s_all(valid_h), 'omitnan');
+                    xline_vals = linspace(min(x_all(valid_h)), max(x_all(valid_h)), 100);
+                    yline_vals = slope_hat .* xline_vals;
+                    plot(xline_vals, yline_vals, '--', 'Color', [0.1 0.1 0.1], 'LineWidth', 1.3, ...
+                        'DisplayName', sprintf('Hypothesis: y=%.3g x', slope_hat));
+                end
+                hold off; grid on;
+                xlabel('1/sqrt(Nobs)');
+                ylabel('\sigma_{out}');
+                title(sprintf('side ratio = %.4f', side_vals(r)));
+                set(gca, 'FontSize', si_font_size);
+                if num_k > 0
+                    lg = legend('Location', 'northwest');
+                    lg.FontSize = max(8, si_font_size - 2);
+                end
+            end
+            st = sgtitle(sprintf('SI 1/sqrt(Nobs) vs \\sigma_{out} by side ratio (<= %.4f), SNR=%.2f', ...
+                si_side_ratio_max, snr_all(s)));
+            st.FontSize = si_font_size;
+        end
+    end
+end
+
+%% Supplementary comparison between crop and Aout
 
 %% ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Helper~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 %% -------------------------------------------------------------------------
@@ -437,7 +613,7 @@ end
 %% -------------------------------------------------------------------------
 % Helper: merge selected blocks using strict manual global cutoffs.
 % File names must contain a token like s21to141.
-function [Aout, param] = mergeAoutBlocksManualCutoff(data, selected_filenames)
+function [Aout, A1, param] = mergeAoutBlocksManualCutoff(data, selected_filenames)
     block_fields = fieldnames(data);
     num_blocks = numel(block_fields);
     if num_blocks < 2
@@ -452,10 +628,19 @@ function [Aout, param] = mergeAoutBlocksManualCutoff(data, selected_filenames)
         [s_start, s_end] = parseSliceRangeFromFilename(selected_filenames{b});
         expected_local = s_end - s_start + 1;
         actual_local = size(block_data.Aout_ALL{1,1}, 3);
+        if ~isfield(block_data, 'A1_used') || isempty(block_data.A1_used)
+            error('Block %d is missing required field A1_used.', b);
+        end
+        actual_local_a1 = size(block_data.A1_used{1}, 3);
         if actual_local ~= expected_local
             error(['Block %d slice count mismatch. Filename implies %d slices ', ...
                 '(%d:%d), but data has %d slices.'], ...
                 b, expected_local, s_start, s_end, actual_local);
+        end
+        if actual_local_a1 ~= expected_local
+            error(['Block %d A1_used slice count mismatch. Filename implies %d slices ', ...
+                '(%d:%d), but A1_used has %d slices.'], ...
+                b, expected_local, s_start, s_end, actual_local_a1);
         end
         meta(b).block_name = block_name; %#ok<AGROW>
         meta(b).path = selected_filenames{b}; %#ok<AGROW>
@@ -463,6 +648,7 @@ function [Aout, param] = mergeAoutBlocksManualCutoff(data, selected_filenames)
         meta(b).s_end = s_end; %#ok<AGROW>
         meta(b).num_local = actual_local; %#ok<AGROW>
         meta(b).num_kernels = numel(block_data.Aout_ALL); %#ok<AGROW>
+        meta(b).num_kernels_a1 = numel(block_data.A1_used); %#ok<AGROW>
         max_end = max(max_end, s_end);
     end
 
@@ -508,15 +694,20 @@ function [Aout, param] = mergeAoutBlocksManualCutoff(data, selected_filenames)
     sample_block = data.(block_fields{1});
     [h, w, ~] = size(sample_block.Aout_ALL{1,1});
     num_kernels_total = max([meta.num_kernels]);
+    num_kernels_a1_total = max([meta.num_kernels_a1]);
     Aout = zeros(h, w, total_slices, num_kernels_total);
+    A1 = zeros(h, w, total_slices, num_kernels_a1_total);
 
-    % Stitch Aout strictly by manual cutoffs.
+    % Stitch Aout and A1 strictly by manual cutoffs.
     for b = 1:num_blocks
         block_data = data.(block_fields{b});
         g_idx = segment_starts(b):segment_ends(b);
         l_idx = g_idx - meta(b).s_start + 1;
         for k = 1:numel(block_data.Aout_ALL)
             Aout(:,:,g_idx,k) = block_data.Aout_ALL{k,1}(:,:,l_idx);
+        end
+        for k = 1:numel(block_data.A1_used)
+            A1(:,:,g_idx,k) = block_data.A1_used{k}(:,:,l_idx);
         end
     end
 
@@ -548,5 +739,154 @@ function [s_start, s_end] = parseSliceRangeFromFilename(file_path)
     s_end = str2double(tok{2});
     if isnan(s_start) || isnan(s_end) || s_start < 1 || s_end < s_start
         error('Invalid slice token in filename: %s', file_path);
+    end
+end
+
+%% -------------------------------------------------------------------------
+% Helper: user-select a rectangle used for noise estimation.
+function noise_roi_position = select_noise_rectangle(slice_img)
+    f = figure('Name', 'Select Noise Region', 'Position', [120, 120, 900, 750]);
+    imagesc(slice_img); axis image; colormap(gray); colorbar; hold on;
+    title({'Draw a rectangular ROI for noise estimation.', ...
+        'Use a background region with minimal signal, then double-click to confirm.'});
+
+    h = drawrectangle('Color', 'c', 'FixedAspectRatio', false, ...
+        'Label', 'Noise ROI', 'Rotatable', false);
+    wait(h);
+    pos = h.Position;
+    pos(1:2) = round(pos(1:2));
+    pos(3:4) = max(2, round(pos(3:4)));
+    noise_roi_position = pos;
+
+    rectangle('Position', pos, 'EdgeColor', 'c', 'LineWidth', 1.4, 'LineStyle', '--');
+    hold off;
+    if isvalid(f), close(f); end
+end
+
+%% -------------------------------------------------------------------------
+% Helper: estimate sigma_noise per energy slice from one fixed noise ROI.
+function noise_std_per_slice = estimate_noise_std_from_roi(Y, noise_roi_position)
+    [h, w, e] = size(Y);
+    x = max(1, round(noise_roi_position(1)));
+    y = max(1, round(noise_roi_position(2)));
+    rw = max(2, round(noise_roi_position(3)));
+    rh = max(2, round(noise_roi_position(4)));
+    x = min(x, w - 1);
+    y = min(y, h - 1);
+    rw = min(rw, w - x + 1);
+    rh = min(rh, h - y + 1);
+
+    noise_std_per_slice = nan(1, e);
+    for s = 1:e
+        roi_vals = Y(y:y+rh-1, x:x+rw-1, s);
+        sigma_noise = robust_std_from_mad(roi_vals(:));
+        if ~isfinite(sigma_noise) || sigma_noise <= 0
+            sigma_noise = std(roi_vals(:), 0, 'omitnan');
+        end
+        noise_std_per_slice(s) = max(sigma_noise, eps);
+    end
+end
+
+%% -------------------------------------------------------------------------
+% Helper: robust std estimate using MAD (same convention as SNR script).
+function sigma = robust_std_from_mad(x)
+    x = x(:);
+    medx = median(x, 'omitnan');
+    abs_dev = abs(x - medx);
+    mad_raw = median(abs_dev, 'omitnan');
+    sigma = 1.4826 * mad_raw;
+end
+
+%% -------------------------------------------------------------------------
+% Helper: convert kernel data into a format accepted by SNR estimator.
+function kernel_input = normalize_kernel_input_for_snr(kernel_input_raw)
+    kernel_input = kernel_input_raw;
+    if isnumeric(kernel_input_raw)
+        if ndims(kernel_input_raw) == 2
+            kernel_input = reshape(kernel_input_raw, size(kernel_input_raw,1), size(kernel_input_raw,2), 1);
+        elseif ndims(kernel_input_raw) ~= 3 && ndims(kernel_input_raw) ~= 4
+            error('Kernel input must be 2D, 3D, 4D, or cell.');
+        end
+    elseif ~iscell(kernel_input_raw)
+        error('Kernel input must be numeric or cell.');
+    end
+end
+
+%% -------------------------------------------------------------------------
+% Helper: infer number of energy slices in kernel input.
+function depth = infer_kernel_depth(kernel_input)
+    if isnumeric(kernel_input)
+        if ndims(kernel_input) < 3
+            depth = 1;
+        else
+            depth = size(kernel_input, 3);
+        end
+        return;
+    end
+
+    if isempty(kernel_input)
+        depth = 1;
+        return;
+    end
+
+    first_kernel = kernel_input{1};
+    if ndims(first_kernel) < 3
+        depth = 1;
+    else
+        depth = size(first_kernel, 3);
+    end
+end
+
+%% -------------------------------------------------------------------------
+% Helper: resize noise sigma vector to requested depth.
+function noise_std_out = match_noise_std_length(noise_std_in, target_depth)
+    if isempty(noise_std_in)
+        noise_std_out = ones(1, target_depth);
+        return;
+    end
+    noise_std_in = reshape(noise_std_in, 1, []);
+    if numel(noise_std_in) >= target_depth
+        noise_std_out = noise_std_in(1:target_depth);
+    else
+        noise_std_out = [noise_std_in, repmat(noise_std_in(end), 1, target_depth - numel(noise_std_in))];
+    end
+end
+
+%% -------------------------------------------------------------------------
+% Helper: align SNR matrices to common energy axis for plotting/factor.
+function [snr_before_plot, snr_after_plot, energy_axis] = align_snr_matrices_for_plot(snr_before_raw, snr_after_raw)
+    ncols = min(size(snr_before_raw, 2), size(snr_after_raw, 2));
+    if ncols < 1
+        error('SNR matrices must contain at least one energy slice.');
+    end
+    snr_before_plot = snr_before_raw(:, 1:ncols);
+    snr_after_plot = snr_after_raw(:, 1:ncols);
+    energy_axis = 1:ncols;
+end
+
+%% -------------------------------------------------------------------------
+% Helper: choose subplot layout prioritizing exact integer factor grids.
+% Example: n=8 -> [2,4].
+function [nrow, ncol] = choose_integer_subplot_layout(nplots)
+    if nplots <= 0
+        nrow = 1; ncol = 1;
+        return;
+    end
+    nplots = round(nplots);
+    best = [];
+    for r = 1:floor(sqrt(nplots))
+        if mod(nplots, r) == 0
+            c = nplots / r;
+            if isempty(best) || abs(c - r) < abs(best(2) - best(1))
+                best = [r, c];
+            end
+        end
+    end
+    if ~isempty(best)
+        nrow = best(1);
+        ncol = best(2);
+    else
+        ncol = ceil(sqrt(nplots));
+        nrow = ceil(nplots / ncol);
     end
 end

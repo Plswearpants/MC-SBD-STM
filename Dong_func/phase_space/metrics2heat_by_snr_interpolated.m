@@ -4,7 +4,10 @@ function metrics2heat_by_snr_interpolated(dataset_metrics, metric_type, mode, in
 %
 % Inputs:
 %   dataset_metrics : struct from loadMetricDataset_new
-%   metric_type     : 'kernel' | 'combined' | 'fidelity' | 'multiplied' | 'kernel_baseline' (default 'kernel')
+%   metric_type     : 'kernel' | 'combined' | 'fidelity' | 'multiplied' |
+%                     'kernel_baseline' | 'denoising' | 'denoising_chi2' |
+%                     'denoising_pvalue' |
+%                     'nobs' (default 'kernel')
 %   mode            : 1 -> axis-3 is Nobs, 2 -> axis-3 is side_length_ratio (default 1)
 %   interp_factor   : grid upsampling factor for interpolation (default 4)
 %   manual_colormap : optional colormap override (e.g., slanCM('viridis'))
@@ -25,7 +28,8 @@ function metrics2heat_by_snr_interpolated(dataset_metrics, metric_type, mode, in
     if nargin < 6
         contour_levels = [];
     end
-    use_unit_clim = ~strcmpi(metric_type, 'fidelity');
+    use_unit_clim = ~(strcmpi(metric_type, 'fidelity') || strcmpi(metric_type, 'denoising') || ...
+                      strcmpi(metric_type, 'nobs') || strcmpi(metric_type, 'denoising_chi2'));
     loader_mode = get_loader_axis_mode(dataset_metrics);
 
     switch mode
@@ -178,8 +182,40 @@ function [metric_data, metric_name] = get_metric_data_mode1(dataset_metrics, met
             end
             metric_data = average_over_repetitions(dataset_metrics.kernel_similarity_baseline_final);
             metric_name = 'Kernel Similarity Baseline';
+        case 'denoising'
+            if ~isfield(dataset_metrics, 'denoising_sigma_ratio_final')
+                error(['metric_type ''denoising'' requires ' ...
+                       'dataset_metrics.denoising_sigma_ratio_final.']);
+            end
+            metric_data = average_over_repetitions(dataset_metrics.denoising_sigma_ratio_final);
+            metric_name = '\sigma_{in}/\sigma_{out}';
+        case 'nobs'
+            if isfield(dataset_metrics, 'Nobs')
+                metric_data = average_over_repetitions(dataset_metrics.Nobs);
+            elseif isfield(dataset_metrics, 'Nobs_at_axis3')
+                metric_data = average_over_repetitions(dataset_metrics.Nobs_at_axis3);
+            else
+                error(['metric_type ''nobs'' requires dataset_metrics.Nobs or ' ...
+                    'dataset_metrics.Nobs_at_axis3.']);
+            end
+            metric_name = 'Nobs';
+        case 'denoising_chi2'
+            if ~isfield(dataset_metrics, 'denoising_fit_chi2_final')
+                error(['metric_type ''denoising_chi2'' requires ' ...
+                       'dataset_metrics.denoising_fit_chi2_final.']);
+            end
+            metric_data = average_over_repetitions(dataset_metrics.denoising_fit_chi2_final);
+            metric_name = 'Gaussian-fit \chi^2';
+        case 'denoising_pvalue'
+            if ~isfield(dataset_metrics, 'denoising_fit_pvalue_final')
+                error(['metric_type ''denoising_pvalue'' requires ' ...
+                       'dataset_metrics.denoising_fit_pvalue_final.']);
+            end
+            metric_data = average_over_repetitions(dataset_metrics.denoising_fit_pvalue_final);
+            metric_name = 'Gaussian-fit p-value';
         otherwise
-            error('metric_type must be ''kernel'', ''combined'', ''fidelity'', ''multiplied'', or ''kernel_baseline''.');
+            error(['metric_type must be ''kernel'', ''combined'', ''fidelity'', ''multiplied'', ' ...
+                   '''kernel_baseline'', ''denoising'', ''denoising_chi2'', ''denoising_pvalue'', or ''nobs''.']);
     end
 end
 
@@ -209,8 +245,25 @@ function [metric_data, metric_name] = get_metric_data_mode2(dataset_metrics, met
             metric_data = average_over_repetitions(select_field(dataset_metrics, ...
                 ['kernel_similarity_baseline' suffix], 'kernel_similarity_baseline_final'));
             metric_name = 'Kernel Similarity Baseline';
+        case 'denoising'
+            metric_data = average_over_repetitions(select_field(dataset_metrics, ...
+                ['denoising_sigma_ratio' suffix], 'denoising_sigma_ratio_final'));
+            metric_name = '\sigma_{in}/\sigma_{out}';
+        case 'nobs'
+            metric_data = average_over_repetitions(select_field(dataset_metrics, ...
+                ['Nobs' suffix], 'Nobs_at_axis3'));
+            metric_name = 'Nobs';
+        case 'denoising_chi2'
+            metric_data = average_over_repetitions(select_field(dataset_metrics, ...
+                ['denoising_fit_chi2' suffix], 'denoising_fit_chi2_final'));
+            metric_name = 'Gaussian-fit \chi^2';
+        case 'denoising_pvalue'
+            metric_data = average_over_repetitions(select_field(dataset_metrics, ...
+                ['denoising_fit_pvalue' suffix], 'denoising_fit_pvalue_final'));
+            metric_name = 'Gaussian-fit p-value';
         otherwise
-            error('metric_type must be ''kernel'', ''combined'', ''fidelity'', ''multiplied'', or ''kernel_baseline''.');
+            error(['metric_type must be ''kernel'', ''combined'', ''fidelity'', ''multiplied'', ' ...
+                   '''kernel_baseline'', ''denoising'', ''denoising_chi2'', ''denoising_pvalue'', or ''nobs''.']);
     end
 end
 

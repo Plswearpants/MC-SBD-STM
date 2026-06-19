@@ -163,6 +163,8 @@ function dataset_metrics = loadMetricDataset_new(mode)
     dataset_metrics.combined_activationScore = nan(dims);
     dataset_metrics.demixing_score = nan(dims);
     dataset_metrics.Nobs_at_axis3 = nan(dims);
+    dataset_metrics.Nobs_param_at_axis3 = nan(dims);
+    dataset_metrics.Nobs_per_kernel_at_axis3 = cell(dims);
     dataset_metrics.side_length_ratio_at_axis3 = nan(dims);
     
     % Add storage for reconstruction data
@@ -188,6 +190,9 @@ function dataset_metrics = loadMetricDataset_new(mode)
     num_batches = ceil(length(result_files) / batch_size);
     
     collision_count = 0;
+    nobs_from_x0_count = 0;
+    nobs_from_param_count = 0;
+    nobs_mismatch_count = 0;
     for batch = 1:num_batches
         start_idx = (batch-1)*batch_size + 1;
         end_idx = min(batch*batch_size, length(result_files));
@@ -333,7 +338,23 @@ function dataset_metrics = loadMetricDataset_new(mode)
                 if isfield(data, 'bout')
                     dataset_metrics.bout{indices(1), indices(2), indices(3), indices(4)} = data.bout{1};
                 end
-                dataset_metrics.Nobs_at_axis3(indices(1), indices(2), indices(3), indices(4)) = nobs_val;
+                nobs_from_x0 = NaN;
+                nobs_per_kernel = [];
+                if isfield(data, 'dataset_X0') && ~isempty(data.dataset_X0)
+                    [nobs_from_x0, nobs_per_kernel] = infer_nobs_from_x0(data.dataset_X0{1});
+                end
+                if isfinite(nobs_from_x0)
+                    dataset_metrics.Nobs_at_axis3(indices(1), indices(2), indices(3), indices(4)) = nobs_from_x0;
+                    nobs_from_x0_count = nobs_from_x0_count + 1;
+                else
+                    dataset_metrics.Nobs_at_axis3(indices(1), indices(2), indices(3), indices(4)) = nobs_val;
+                    nobs_from_param_count = nobs_from_param_count + 1;
+                end
+                dataset_metrics.Nobs_param_at_axis3(indices(1), indices(2), indices(3), indices(4)) = nobs_val;
+                dataset_metrics.Nobs_per_kernel_at_axis3{indices(1), indices(2), indices(3), indices(4)} = nobs_per_kernel;
+                if isfinite(nobs_from_x0) && abs(nobs_from_x0 - nobs_val) > 1e-10
+                    nobs_mismatch_count = nobs_mismatch_count + 1;
+                end
                 if ~isempty(designed_ratio_val)
                     dataset_metrics.side_length_ratio_at_axis3(indices(1), indices(2), indices(3), indices(4)) = designed_ratio_val;
                 end
@@ -405,6 +426,15 @@ function dataset_metrics = loadMetricDataset_new(mode)
         warning('loadMetricDataset_new:AxisCollisions', ...
             '%d axis-slot collisions detected; later dataset overwrites earlier entry.', collision_count);
     end
+    if nobs_mismatch_count > 0
+        warning('loadMetricDataset_new:NobsMismatch', ...
+            ['Detected %d dataset(s) where N_obs parameter disagrees with X0-derived Nobs. ' ...
+             'metrics.Nobs_at_axis3 now uses X0-derived values when available.'], ...
+            nobs_mismatch_count);
+    end
+    fprintf(['Nobs assignment summary: from X0=%d, from params fallback=%d, ' ...
+             'param-vs-X0 mismatches=%d\n'], ...
+            nobs_from_x0_count, nobs_from_param_count, nobs_mismatch_count);
     
     % Print summary
     print_metrics_summary(dataset_metrics);
@@ -450,3 +480,31 @@ function print_metrics_summary(metrics)
         non_empty_reconstructions, total_points, ...
         100 * non_empty_reconstructions / total_points);
 end 
+
+function [nobs_val, nobs_per_kernel] = infer_nobs_from_x0(x0_raw)
+    nobs_val = NaN;
+    nobs_per_kernel = [];
+    if isempty(x0_raw)
+        return;
+    end
+    x0_use = x0_raw;
+    if iscell(x0_use)
+        if isempty(x0_use)
+            return;
+        end
+        x0_use = x0_use{1};
+    end
+    if ~isnumeric(x0_use) || ndims(x0_use) < 2
+        return;
+    end
+    if ndims(x0_use) == 2
+        nobs_per_kernel = nnz(x0_use ~= 0);
+    else
+        num_kernels = size(x0_use, 3);
+        nobs_per_kernel = zeros(1, num_kernels);
+        for k = 1:num_kernels
+            nobs_per_kernel(k) = nnz(x0_use(:,:,k) ~= 0);
+        end
+    end
+    nobs_val = mean(nobs_per_kernel, 'omitnan');
+end

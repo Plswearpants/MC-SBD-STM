@@ -725,16 +725,16 @@ end
 
 %% Normalize and combine Y_rec_each and its FT-QPI using method 2 
 % Reshape Y_rec_each and FT_QPI_Y_rec_each to combine all kernels
-Y_rec_show_Full = [];
+%Y_rec_show_Full = [];
 qpi_Y_rec_show_Full = [];
 for k = 1:num_kernels
-    Y_rec_show_Full = [Y_rec_show_Full, squeeze(Y_rec_each(k,:,:,:))];
+    %Y_rec_show_Full = [Y_rec_show_Full, squeeze(Y_rec_each(k,:,:,:))];
     qpi_Y_rec_show_Full = [qpi_Y_rec_show_Full, squeeze(FT_QPI_Y_rec_each(k,:,:,:))];
 end
 
 % Normalize each slice across all kernels
 for i = 1:size(Y_rec_show_Full,3)
-    Y_rec_show_Full(:,:,i) = mat2gray(Y_rec_show_Full(:,:,i));
+    %Y_rec_show_Full(:,:,i) = mat2gray(Y_rec_show_Full(:,:,i));
     qpi_Y_rec_show_Full(:,:,i) = 1-mat2gray(qpi_Y_rec_show_Full(:,:,i),[0,1]);
 end
 
