@@ -235,7 +235,7 @@ for i = 1:size(param_sets, 1)
             dataset_counter, total_datasets, r, rep);
         
         % Generate kernels
-        [A0, A0_noiseless] = generate_kernels(LDoS_sim(:,:,sliceidx), SNR, ...
+        A0_noiseless = generate_kernels(LDoS_sim(:,:,sliceidx), SNR, ...
             fixed_params.N_single, N_obs, fixed_params.p_scale);
         
         % Generate clean observation
@@ -399,7 +399,7 @@ function X0 = generate_activation_maps(N_single, rho_d, p_scale, num_kernels)
     end
 end
 
-function [A0, A0_noiseless] = generate_kernels(rho_single, SNR, N_single, N_obs, p_scale)
+function A0_noiseless = generate_kernels(rho_single, SNR, N_single, N_obs, p_scale)
     % Generate kernels using SNR-based cutoff and proper scaling
     % 
     % Inputs:
@@ -410,11 +410,9 @@ function [A0, A0_noiseless] = generate_kernels(rho_single, SNR, N_single, N_obs,
     %   p_scale: Resolution factor (pixels per lattice site)
     %
     % Outputs:
-    %   A0: Cell array of noisy kernels
     %   A0_noiseless: Cell array of noiseless kernels
     
     num_kernels = size(rho_single, 3);
-    A0 = cell(1, num_kernels);
     A0_noiseless = cell(1, num_kernels);
     
     % Process each kernel
@@ -436,11 +434,9 @@ function [A0, A0_noiseless] = generate_kernels(rho_single, SNR, N_single, N_obs,
         A0_noiseless{k} = imresize(rho_single_cutoff, target_size);
         A0_noiseless{k} = proj2oblique(A0_noiseless{k});
         
-        % Add noise based on SNR
-        signal_variance = var(A0_noiseless{k}(:));
-        eta = signal_variance / SNR;
-        A0{k} = A0_noiseless{k} + sqrt(eta) * randn(size(A0_noiseless{k}));
-        A0{k} = proj2oblique(A0{k});
+        % Preserve legacy RNG progression from removed intermediate noisy-kernel path.
+        randn(size(A0_noiseless{k}));
+        
     end
 end
 
