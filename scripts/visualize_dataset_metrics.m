@@ -45,6 +45,7 @@ cfg.plot.v2_defect_density_interpolated = false;    % V2: defect-density slices 
 cfg.plot.v3_interactive_inspectors = true;         % V3: clickable inspector + detailed dataset viewer.
 cfg.plot.v4_added_metric_heatmaps = false;          % V4: denoising/Nobs/GOF heatmaps.
 cfg.plot.v5_scatter_stacking_law = true;           % V5: stacking-law scatters (sqrt(Nobs)-based diagnostics).
+cfg.plot.v5_fit_parameter_sweeps = true;           % V5b: linear-fit coefficient sweeps (slope/intercept trends).
 cfg.plot.v6_defect_occurrence = false;              % V6: defect occurrence vs kernel metrics.
 cfg.plot.v7_nor_loo_density = false;                % V7: NOR/LOO vs density profiles.
 cfg.plot.v8_optional_views = false;                 % V8: optional combined-runs and legacy views.
@@ -168,6 +169,11 @@ if cfg.run_visualize
     if cfg.plot.v5_scatter_stacking_law
         plot_nobs_vs_denoising_scatter(metrics, cfg);
         plot_nobs_vs_denoising_by_side_ratio(metrics, cfg);
+    end
+
+%% V5b: Linear-Fit Coefficient Sweeps
+    if isfield(cfg.plot, 'v5_fit_parameter_sweeps') && cfg.plot.v5_fit_parameter_sweeps
+        plot_v5_fit_parameter_sweeps(metrics, cfg);
     end
 
 %% V6: Defect Occurrence Diagnostics
@@ -304,8 +310,10 @@ function plot_nobs_vs_denoising_scatter(metrics, cfg)
                 [x_by_kernel, y_by_kernel] = collect_per_kernel_points( ...
                     squeeze(metrics.Nobs_per_kernel_at_axis3(s_idx,:,:,:)), ...
                     squeeze(metrics.denoising_sigma_ratio_per_kernel(s_idx,:,:,:)));
-                scatter_per_kernel_groups(x_by_kernel, y_by_kernel, 'sqrt', ...
+                fit_stats = scatter_per_kernel_groups(x_by_kernel, y_by_kernel, 'sqrt', ...
                     cfg.plot_format.marker_size_kernel, cfg.plot_format.legend_location);
+                add_compact_fit_summary(gca, fit_stats);
+                print_fit_summary_to_console(sprintf('V5 per-kernel | SNR=%.3g', snr_vals(s)), fit_stats);
             end
 
             hold off;
@@ -408,8 +416,11 @@ function plot_nobs_vs_denoising_by_side_ratio(metrics, cfg)
             [x_by_kernel, y_by_kernel] = collect_per_kernel_points( ...
                 squeeze(metrics.Nobs_per_kernel_at_axis3(s_idx, :, side_idx, :)), ...
                 squeeze(metrics.denoising_sigma_ratio_per_kernel(s_idx, :, side_idx, :)));
-            scatter_per_kernel_groups(x_by_kernel, y_by_kernel, 'sqrt', ...
+            fit_stats = scatter_per_kernel_groups(x_by_kernel, y_by_kernel, 'sqrt', ...
                 cfg.plot_format.marker_size_kernel, cfg.plot_format.legend_location);
+            add_compact_fit_summary(gca, fit_stats);
+            print_fit_summary_to_console(sprintf('V5 by-side-ratio | SNR=%.3g | side=%.4f', ...
+                snr_vals(s), side_vals(r)), fit_stats);
             hold off;
             grid on;
             xlabel('sqrt(Nobs)');
@@ -450,9 +461,11 @@ function [x_by_kernel, y_by_kernel] = collect_per_kernel_points(nobs_cells, y_ce
     end
 end
 
-function scatter_per_kernel_groups(x_by_kernel, y_by_kernel, x_mode, marker_size, legend_location)
+function fit_stats = scatter_per_kernel_groups(x_by_kernel, y_by_kernel, x_mode, marker_size, legend_location)
     num_kernels = numel(x_by_kernel);
     cmap = lines(max(1, num_kernels));
+    fit_stats = repmat(struct('kernel', NaN, 'n', 0, 'slope', NaN, 'intercept', NaN, ...
+        'r2', NaN, 'rmse', NaN), 1, num_kernels);
     for kk = 1:num_kernels
         if isempty(x_by_kernel{kk}) || isempty(y_by_kernel{kk})
             continue;
@@ -474,6 +487,14 @@ function scatter_per_kernel_groups(x_by_kernel, y_by_kernel, x_mode, marker_size
             'MarkerFaceColor', cmap(kk,:), ...
             'MarkerFaceAlpha', 0.65, ...
             'DisplayName', sprintf('Kernel %d', kk));
+
+        fit_stats(kk) = compute_linear_fit_stats(xv, yv, kk);
+        if fit_stats(kk).n >= 2 && isfinite(fit_stats(kk).slope) && isfinite(fit_stats(kk).intercept)
+            x_line = linspace(min(xv), max(xv), 100);
+            y_line = fit_stats(kk).slope .* x_line + fit_stats(kk).intercept;
+            plot(x_line, y_line, '-', 'LineWidth', 1.4, ...
+                'Color', cmap(kk,:), 'HandleVisibility', 'off');
+        end
     end
     if num_kernels > 0
         if nargin < 5 || isempty(legend_location)
@@ -481,6 +502,232 @@ function scatter_per_kernel_groups(x_by_kernel, y_by_kernel, x_mode, marker_size
         end
         legend('Location', legend_location);
     end
+end
+
+function fit_stat = compute_linear_fit_stats(xv, yv, kernel_idx)
+    fit_stat = struct('kernel', kernel_idx, 'n', 0, 'slope', NaN, 'intercept', NaN, ...
+        'r2', NaN, 'rmse', NaN);
+    valid = isfinite(xv) & isfinite(yv);
+    xv = xv(valid);
+    yv = yv(valid);
+    fit_stat.n = numel(xv);
+    if fit_stat.n < 2 || numel(unique(xv)) < 2
+        return;
+    end
+
+    p = polyfit(xv, yv, 1);
+    yhat = polyval(p, xv);
+    residual = yv - yhat;
+    ss_res = sum(residual.^2);
+    ss_tot = sum((yv - mean(yv)).^2);
+
+    fit_stat.slope = p(1);
+    fit_stat.intercept = p(2);
+    fit_stat.rmse = sqrt(mean(residual.^2));
+    if ss_tot > 0
+        fit_stat.r2 = 1 - ss_res / ss_tot;
+    end
+end
+
+function add_compact_fit_summary(ax, fit_stats)
+    if nargin < 2 || isempty(fit_stats) || ~isgraphics(ax, 'axes')
+        return;
+    end
+    valid_idx = find(arrayfun(@(s) s.n >= 2 && isfinite(s.r2), fit_stats));
+    if isempty(valid_idx)
+        text(ax, 0.02, 0.98, 'fit: insufficient data', ...
+            'Units', 'normalized', ...
+            'VerticalAlignment', 'top', ...
+            'HorizontalAlignment', 'left', ...
+            'FontSize', max(8, ax.FontSize - 2), ...
+            'BackgroundColor', [1 1 1], ...
+            'Margin', 3, ...
+            'Interpreter', 'none');
+        return;
+    end
+
+    summary_lines = cell(1, numel(valid_idx) + 1);
+    summary_lines{1} = 'linear fit: K[a,b,R^2]';
+    for i = 1:numel(valid_idx)
+        fs = fit_stats(valid_idx(i));
+        summary_lines{i+1} = sprintf('K%d[%.3g,%.3g,%.3f]', fs.kernel, fs.slope, fs.intercept, fs.r2);
+    end
+    summary_text = strjoin(summary_lines, newline);
+    text(ax, 0.02, 0.98, summary_text, ...
+        'Units', 'normalized', ...
+        'VerticalAlignment', 'top', ...
+        'HorizontalAlignment', 'left', ...
+        'FontSize', max(8, ax.FontSize - 2), ...
+        'BackgroundColor', [1 1 1], ...
+        'Margin', 3, ...
+        'Interpreter', 'none');
+end
+
+function print_fit_summary_to_console(context_label, fit_stats)
+    if nargin < 2 || isempty(fit_stats)
+        return;
+    end
+    valid_idx = find(arrayfun(@(s) s.n >= 2 && isfinite(s.slope) && isfinite(s.intercept), fit_stats));
+    if isempty(valid_idx)
+        fprintf('[fit] %s -> insufficient data for linear fit.\n', context_label);
+        return;
+    end
+
+    for i = 1:numel(valid_idx)
+        fs = fit_stats(valid_idx(i));
+        fprintf('[fit] %s | K%d: y = %.6g*x + %.6g (a=%.6g, b=%.6g, R^2=%.4f, RMSE=%.4g, n=%d)\n', ...
+            context_label, fs.kernel, fs.slope, fs.intercept, fs.slope, fs.intercept, fs.r2, fs.rmse, fs.n);
+    end
+end
+
+function plot_v5_fit_parameter_sweeps(metrics, cfg)
+    if cfg.axis3_mode ~= 2 || ~isfield(metrics, 'SNR_values') || ...
+            ~isfield(metrics, 'side_length_ratio_values') || ...
+            ~isfield(metrics, 'Nobs_per_kernel_at_axis3') || ...
+            ~isfield(metrics, 'denoising_sigma_ratio_per_kernel')
+        return;
+    end
+
+    snr_vals_all = metrics.SNR_values(:)';
+    side_vals_all = metrics.side_length_ratio_values(:)';
+    if isempty(snr_vals_all) || isempty(side_vals_all)
+        return;
+    end
+
+    snr_indices_all = find(isfinite(snr_vals_all));
+    side_indices_all = find(isfinite(side_vals_all));
+    if isempty(snr_indices_all) || isempty(side_indices_all)
+        return;
+    end
+
+    % Sweep 1: for every SNR, plot side-length-ratio vs slope/intercept.
+    side_vals_for_snr = side_vals_all(side_indices_all);
+    for ii = 1:numel(snr_indices_all)
+        s_idx = snr_indices_all(ii);
+        [slope_vs_side, intercept_vs_side] = build_fit_coeff_matrices(metrics, s_idx, side_indices_all);
+        plot_fit_coefficients( ...
+            side_vals_for_snr, slope_vs_side, intercept_vs_side, cfg, ...
+            'side length ratio', ...
+            sprintf('Fixed SNR = %.3g', snr_vals_all(s_idx)));
+    end
+
+    % Sweep 2: for every side ratio, plot SNR vs slope/intercept.
+    snr_vals_for_side = snr_vals_all(snr_indices_all);
+    for jj = 1:numel(side_indices_all)
+        side_idx = side_indices_all(jj);
+        [slope_vs_snr, intercept_vs_snr] = build_fit_coeff_matrices(metrics, snr_indices_all, side_idx);
+        plot_fit_coefficients( ...
+            snr_vals_for_side, slope_vs_snr, intercept_vs_snr, cfg, ...
+            'SNR', ...
+            sprintf('Fixed side ratio = %.4f', side_vals_all(side_idx)));
+    end
+end
+
+function [slope_mat, intercept_mat] = build_fit_coeff_matrices(metrics, snr_indices, side_indices)
+    slope_mat = nan(0, numel(snr_indices) * numel(side_indices));
+    intercept_mat = nan(0, numel(snr_indices) * numel(side_indices));
+    col = 0;
+    for ii = 1:numel(snr_indices)
+        s_idx = snr_indices(ii);
+        for jj = 1:numel(side_indices)
+            side_idx = side_indices(jj);
+            col = col + 1;
+            [slope_vec, intercept_vec] = fit_coefficients_for_slice(metrics, s_idx, side_idx);
+            n_kernel = numel(slope_vec);
+            if size(slope_mat, 1) < n_kernel
+                slope_mat(size(slope_mat, 1)+1:n_kernel, :) = nan;
+                intercept_mat(size(intercept_mat, 1)+1:n_kernel, :) = nan;
+            end
+            if n_kernel > 0
+                slope_mat(1:n_kernel, col) = slope_vec(:);
+                intercept_mat(1:n_kernel, col) = intercept_vec(:);
+            end
+        end
+    end
+end
+
+function [slope_vec, intercept_vec] = fit_coefficients_for_slice(metrics, snr_idx, side_idx)
+    [x_by_kernel, y_by_kernel] = collect_per_kernel_points( ...
+        squeeze(metrics.Nobs_per_kernel_at_axis3(snr_idx, :, side_idx, :)), ...
+        squeeze(metrics.denoising_sigma_ratio_per_kernel(snr_idx, :, side_idx, :)));
+
+    num_kernels = numel(x_by_kernel);
+    slope_vec = nan(1, num_kernels);
+    intercept_vec = nan(1, num_kernels);
+    for kk = 1:num_kernels
+        if isempty(x_by_kernel{kk}) || isempty(y_by_kernel{kk})
+            continue;
+        end
+        xv = x_by_kernel{kk};
+        yv = y_by_kernel{kk};
+        valid = isfinite(xv) & isfinite(yv) & (xv > 0);
+        xv = sqrt(xv(valid));
+        yv = yv(valid);
+        fit_stat = compute_linear_fit_stats(xv, yv, kk);
+        if fit_stat.n >= 2 && isfinite(fit_stat.slope) && isfinite(fit_stat.intercept)
+            slope_vec(kk) = fit_stat.slope;
+            intercept_vec(kk) = fit_stat.intercept;
+        end
+    end
+end
+
+function plot_fit_coefficients(x_values, slope_mat, intercept_mat, cfg, x_label, context_title)
+    if isempty(x_values) || isempty(slope_mat)
+        return;
+    end
+    num_kernels = size(slope_mat, 1);
+    if num_kernels < 1
+        return;
+    end
+
+    cmap = lines(max(1, num_kernels));
+    fig = figure('Name', sprintf('V5b Fit Coefficients (%s)', context_title), ...
+        'Position', [140 140 980 420]);
+    t = tiledlayout(fig, 1, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
+
+    ax1 = nexttile(t, 1);
+    hold(ax1, 'on');
+    for kk = 1:num_kernels
+        yk = slope_mat(kk, :);
+        valid = isfinite(x_values) & isfinite(yk);
+        if any(valid)
+            plot(ax1, x_values(valid), yk(valid), '-o', ...
+                'LineWidth', 1.2, ...
+                'MarkerSize', 4, ...
+                'Color', cmap(kk,:), ...
+                'DisplayName', sprintf('Kernel %d', kk));
+        end
+    end
+    hold(ax1, 'off');
+    grid(ax1, 'on');
+    xlabel(ax1, x_label);
+    ylabel(ax1, 'slope a');
+    title(ax1, 'y = ax + b: slope (a)');
+    apply_axes_format(ax1, cfg.plot_format);
+
+    ax2 = nexttile(t, 2);
+    hold(ax2, 'on');
+    for kk = 1:num_kernels
+        yk = intercept_mat(kk, :);
+        valid = isfinite(x_values) & isfinite(yk);
+        if any(valid)
+            plot(ax2, x_values(valid), yk(valid), '-o', ...
+                'LineWidth', 1.2, ...
+                'MarkerSize', 4, ...
+                'Color', cmap(kk,:), ...
+                'DisplayName', sprintf('Kernel %d', kk));
+        end
+    end
+    hold(ax2, 'off');
+    grid(ax2, 'on');
+    xlabel(ax2, x_label);
+    ylabel(ax2, 'intercept b');
+    title(ax2, 'y = ax + b: intercept (b)');
+    apply_axes_format(ax2, cfg.plot_format);
+    legend(ax2, 'Location', cfg.plot_format.legend_location);
+
+    st = sgtitle(t, sprintf('V5b Linear-Fit Coefficients | %s', context_title));
+    apply_text_format(st, cfg.plot_format.font_name, cfg.plot_format.font_size_sgtitle);
 end
 
 function apply_axes_format(ax, fmt)
@@ -624,6 +871,7 @@ function cfg = default_config()
         'v3_interactive_inspectors', true, ...
         'v4_added_metric_heatmaps', true, ...
         'v5_scatter_stacking_law', true, ...
+        'v5_fit_parameter_sweeps', true, ...
         'v6_defect_occurrence', true, ...
         'v7_nor_loo_density', true, ...
         'v8_optional_views', true);
