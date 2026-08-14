@@ -1,6 +1,6 @@
 # MT-SBD-STM: Multi-Type Sparse blind deconvolution using the Riemannian Trust-Region Method (RTRM) on STM images
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Plswearpants/MT-SBD-STM)
-
+[![DOI:](https://doi.org/10.5281/zenodo.21939462)]
 This is a MATLAB package that aims to deconvolute multi-type kernels and their corresponding activations
 
 As sparse blind deconvolution is a nonconvex problem, using RTRM ensures that local minima will be found in the associated optimization objective.
