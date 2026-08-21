@@ -1,0 +1,520 @@
+function dataset_metrics = loadMetricDataset_new(mode)
+    % Initialize storage structure
+    dataset_metrics = struct();
+
+    if nargin < 1 || isempty(mode)
+        mode = 1;
+    end
+    if ~(isscalar(mode) && any(mode == [1, 2]))
+        error('mode must be 1 (N_obs axis) or 2 (side_length_ratio axis).');
+    end
+    
+    % Prefer canonical artifact root; fall back to examples/ (legacy).
+    repo_root = fileparts(fileparts(fileparts(mfilename('fullpath')))); % .../lib|Dong_func/phase_space -> repo
+    if ~exist(fullfile(repo_root, 'init_sbd.m'), 'file')
+        repo_root = fileparts(fileparts(mfilename('fullpath')));
+    end
+    default_path = fullfile(repo_root, 'artifacts', 'synthetic');
+    if ~isfolder(default_path)
+        default_path = fullfile(repo_root, 'examples', 'results');
+    end
+    if ~isfolder(default_path)
+        default_path = fullfile(pwd, 'examples');
+    end
+    folder_path = uigetdir(default_path, 'Select folder containing SBD results');
+    if folder_path == 0
+        error('Folder selection canceled by user');
+    end
+    
+    % First load synthetic dataset file
+    synthetic_files = dir(fullfile(folder_path, 'synthetic_datasets*.mat'));
+    if isempty(synthetic_files)
+        error('No synthetic dataset file found');
+    end
+
+    % Load parameter information (include side_length_ratio_values if saved by gen script)
+    try
+        synthetic_data = load(fullfile(folder_path, synthetic_files(1).name), ...
+            'datasets', 'param_sets', 'descriptions', 'side_length_ratio_values');
+    catch ME
+        error('Failed to load synthetic dataset file: %s', ME.message);
+    end
+
+    % Extract unique parameter values from datasets (handles repetitions)
+    % Get all parameter values from datasets
+    all_snr = [];
+    all_theta = [];
+    all_nobs = [];
+    all_side_length_ratio = [];
+    all_designed_side_length_ratio = [];
+    all_reps = [];
+    has_designed_ratio = false;
+    for i = 1:length(synthetic_data.datasets)
+        if isfield(synthetic_data.datasets(i).params, 'SNR')
+            all_snr = [all_snr; synthetic_data.datasets(i).params.SNR];
+        end
+        % Handle both defect_density (new) and theta_cap (old) naming
+        if isfield(synthetic_data.datasets(i).params, 'defect_density')
+            all_theta = [all_theta; synthetic_data.datasets(i).params.defect_density];
+        elseif isfield(synthetic_data.datasets(i).params, 'theta_cap')
+            all_theta = [all_theta; synthetic_data.datasets(i).params.theta_cap];
+        end
+        % Handle both N_obs (new) and Nobs (old) naming
+        if isfield(synthetic_data.datasets(i).params, 'N_obs')
+            all_nobs = [all_nobs; synthetic_data.datasets(i).params.N_obs];
+        elseif isfield(synthetic_data.datasets(i).params, 'Nobs')
+            all_nobs = [all_nobs; synthetic_data.datasets(i).params.Nobs];
+        end
+        % Designed side-length ratio (exact grid value from generation)
+        if isfield(synthetic_data.datasets(i).params, 'designed_side_length_ratio')
+            all_designed_side_length_ratio = [all_designed_side_length_ratio; synthetic_data.datasets(i).params.designed_side_length_ratio];
+            has_designed_ratio = true;
+        end
+        % Actual side-length ratio (may differ due to N_obs rounding)
+        if isfield(synthetic_data.datasets(i).params, 'side_length_ratio')
+            all_side_length_ratio = [all_side_length_ratio; synthetic_data.datasets(i).params.side_length_ratio];
+        elseif isfield(synthetic_data.datasets(i).params, 'area_ratio')
+            all_side_length_ratio = [all_side_length_ratio; synthetic_data.datasets(i).params.area_ratio];
+        end
+        % Check for repetition parameter (check both 'rep' and 'repetition' for compatibility)
+        if isfield(synthetic_data.datasets(i).params, 'rep')
+            all_reps = [all_reps; synthetic_data.datasets(i).params.rep];
+        elseif isfield(synthetic_data.datasets(i).params, 'repetition')
+            all_reps = [all_reps; synthetic_data.datasets(i).params.repetition];
+        end
+    end
+    
+    % Get unique values
+    unique_snr = unique(all_snr);
+    unique_theta = unique(all_theta);
+    unique_nobs = unique(all_nobs);
+    
+    % Determine the canonical side-length ratio grid for indexing.
+    % Priority: (1) designed_side_length_ratio field, (2) side_length_ratio_values
+    % saved at generation time, (3) snap actual ratios via uniquetol.
+    if has_designed_ratio
+        unique_designed_ratio = unique(all_designed_side_length_ratio);
+        fprintf('Using designed_side_length_ratio for grid indexing (%d unique values).\n', numel(unique_designed_ratio));
+    elseif isfield(synthetic_data, 'side_length_ratio_values')
+        unique_designed_ratio = synthetic_data.side_length_ratio_values(:);
+        fprintf('Using saved side_length_ratio_values for grid indexing (%d values).\n', numel(unique_designed_ratio));
+    elseif ~isempty(all_side_length_ratio)
+        snap_tol = 0.02;
+        unique_designed_ratio = uniquetol(all_side_length_ratio, snap_tol);
+        fprintf('No designed ratio found; snapped actual ratios with tol=%.3f → %d bins.\n', ...
+            snap_tol, numel(unique_designed_ratio));
+    else
+        unique_designed_ratio = [];
+    end
+    
+    % Determine repetition dimension size using two methods (robust approach)
+    num_datasets = length(synthetic_data.datasets);
+    if isfield(synthetic_data, 'param_sets') && ~isempty(synthetic_data.param_sets)
+        num_unique_combinations = size(synthetic_data.param_sets, 1);
+        % Method 2 (more robust): calculate from dataset count / unique combinations
+        max_rep_calculated = num_datasets / num_unique_combinations;
+        if mod(num_datasets, num_unique_combinations) == 0 && max_rep_calculated >= 1
+            max_rep = round(max_rep_calculated);
+        else
+            % If not evenly divisible, use method 1 or default
+            if ~isempty(all_reps)
+                max_rep = max(all_reps);
+            else
+                max_rep = 1;
+            end
+        end
+    else
+        % Method 1: use rep field from datasets if available
+        if ~isempty(all_reps)
+            max_rep = max(all_reps);
+        else
+            max_rep = 1;  % No repetitions, use dimension 1 for backward compatibility
+        end
+    end
+    
+    unique_reps = 1:max_rep;  % Repetitions are 1, 2, 3, ..., max_rep
+    
+    % Store parameter values and axis metadata
+    dataset_metrics.SNR_values = unique_snr;
+    dataset_metrics.theta_cap_values = unique_theta;
+    if ~isempty(unique_nobs)
+        dataset_metrics.Nobs_values = unique_nobs;
+    end
+    if ~isempty(unique_designed_ratio)
+        dataset_metrics.side_length_ratio_values = unique_designed_ratio;
+    end
+    dataset_metrics.repetition_values = unique_reps;
+
+    switch mode
+        case 1
+            axis3_values = unique_nobs;
+            axis3_name = 'N_obs';
+        case 2
+            if isempty(unique_designed_ratio)
+                error(['mode=2 requested, but no side-length ratio grid was found. ' ...
+                       'Cannot index datasets on side_length_ratio axis.']);
+            end
+            axis3_values = unique_designed_ratio;
+            axis3_name = 'side_length_ratio';
+    end
+    dataset_metrics.axis3_mode = mode;
+    dataset_metrics.axis3_name = axis3_name;
+    dataset_metrics.axis3_values = axis3_values;
+
+    % Initialize metric arrays with pre-allocated memory (4D: SNR × theta × axis3 × rep)
+    dims = [length(unique_snr), length(unique_theta), length(axis3_values), max_rep];
+    dataset_metrics.kernel_quality_trajectory = cell(dims);
+    dataset_metrics.activation_similarity_trajectory = cell(dims);
+    dataset_metrics.kernel_quality_final = nan(dims);
+    dataset_metrics.activation_similarity_final = nan(dims);
+    dataset_metrics.runtime = nan(dims);
+    dataset_metrics.residuals = cell(dims);
+    dataset_metrics.relative_changes = cell(dims);
+    dataset_metrics.combined_activationScore = nan(dims);
+    dataset_metrics.demixing_score = nan(dims);
+    dataset_metrics.Nobs_at_axis3 = nan(dims);
+    dataset_metrics.Nobs_param_at_axis3 = nan(dims);
+    dataset_metrics.Nobs_per_kernel_at_axis3 = cell(dims);
+    dataset_metrics.side_length_ratio_at_axis3 = nan(dims);
+    
+    % Add storage for reconstruction data
+    dataset_metrics.Y = cell(dims);          % Original observations from synthetic data
+    dataset_metrics.Y_clean = cell(dims);    % Clean observations from synthetic data
+    dataset_metrics.A0 = cell(dims);         % Ground truth kernels
+    dataset_metrics.A0_noiseless = cell(dims); % noiseless ground truth kernels 
+    dataset_metrics.A0_noise_normalized = cell(dims); % the best ground truth kernels the algorithm can get  
+    dataset_metrics.X0 = cell(dims);         % Ground truth activations
+    dataset_metrics.Aout = cell(dims);       % Reconstructed kernels
+    dataset_metrics.Xout = cell(dims);       % Reconstructed activations
+    dataset_metrics.bout = cell(dims);       % Bias terms
+    dataset_metrics.extras = cell(dims);    % Extra metrics
+
+    % Get list of result files
+    result_files = dir(fullfile(folder_path, 'SBD_parallel_dataset*_optimal.mat'));
+    if isempty(result_files)
+        error('No SBD result files found');
+    end
+    
+    % Process result files in batches for memory efficiency
+    batch_size = 10;
+    num_batches = ceil(length(result_files) / batch_size);
+    
+    collision_count = 0;
+    nobs_from_x0_count = 0;
+    nobs_from_param_count = 0;
+    nobs_mismatch_count = 0;
+    for batch = 1:num_batches
+        start_idx = (batch-1)*batch_size + 1;
+        end_idx = min(batch*batch_size, length(result_files));
+        
+        % Process files in current batch
+        for i = start_idx:end_idx
+            % Extract dataset number efficiently
+            [~, name] = fileparts(result_files(i).name);
+            dataset_num = str2double(regexp(name, '\d+', 'match', 'once'));
+            
+            % Validate dataset number
+            if isnan(dataset_num) || dataset_num < 1 || dataset_num > length(synthetic_data.datasets)
+                warning('Invalid dataset number %d from file %s, skipping', dataset_num, result_files(i).name);
+                continue;
+            end
+            
+            % Get parameter values from dataset (handles repetitions)
+            dataset = synthetic_data.datasets(dataset_num);
+            
+            % Extract parameters with backward compatibility
+            if ~isfield(dataset.params, 'SNR')
+                warning('Dataset %d missing SNR parameter, skipping', dataset_num);
+                continue;
+            end
+            snr_val = dataset.params.SNR;
+            
+            % Handle both defect_density (new) and theta_cap (old) naming
+            if isfield(dataset.params, 'defect_density')
+                theta_val = dataset.params.defect_density;
+            elseif isfield(dataset.params, 'theta_cap')
+                theta_val = dataset.params.theta_cap;
+            else
+                warning('Dataset %d missing defect_density/theta_cap parameter, skipping', dataset_num);
+                continue;
+            end
+            
+            % Handle both N_obs (new) and Nobs (old) naming
+            if isfield(dataset.params, 'N_obs')
+                nobs_val = dataset.params.N_obs;
+            elseif isfield(dataset.params, 'Nobs')
+                nobs_val = dataset.params.Nobs;
+            else
+                warning('Dataset %d missing N_obs/Nobs parameter, skipping', dataset_num);
+                continue;
+            end
+
+            % Resolve designed side-length ratio for parallel indexing.
+            % Priority: designed_side_length_ratio > area_ratio snapped to grid.
+            designed_ratio_val = [];
+            if isfield(dataset.params, 'designed_side_length_ratio')
+                designed_ratio_val = dataset.params.designed_side_length_ratio;
+            elseif ~isempty(unique_designed_ratio)
+                actual_ratio = [];
+                if isfield(dataset.params, 'side_length_ratio')
+                    actual_ratio = dataset.params.side_length_ratio;
+                elseif isfield(dataset.params, 'area_ratio')
+                    actual_ratio = dataset.params.area_ratio;
+                end
+                if ~isempty(actual_ratio)
+                    [~, closest_idx] = min(abs(unique_designed_ratio - actual_ratio));
+                    designed_ratio_val = unique_designed_ratio(closest_idx);
+                end
+            end
+            
+            % Get repetition index (check both 'rep' and 'repetition' fields, default to 1 for backward compatibility)
+            if isfield(dataset.params, 'rep')
+                rep_val = dataset.params.rep;
+            elseif isfield(dataset.params, 'repetition')
+                rep_val = dataset.params.repetition;
+            else
+                rep_val = 1;  % Backward compatibility: non-repetitive datasets use rep=1
+            end
+            
+            % Map parameter values to indices (use exact matching for better accuracy)
+            snr_idx = find(abs(unique_snr - snr_val) < 1e-10, 1);
+            theta_idx = find(abs(unique_theta - theta_val) < 1e-10, 1);
+            nobs_idx = find(abs(unique_nobs - nobs_val) < 1e-10, 1);
+            rep_idx = rep_val;  % Repetition is already an index (1, 2, 3, ...)
+            
+            if isempty(snr_idx) || isempty(theta_idx)
+                warning('Dataset %d: Could not map parameters to indices (SNR=%.2e, theta=%.2e, N_obs=%d), skipping', ...
+                    dataset_num, snr_val, theta_val, nobs_val);
+                continue;
+            end
+
+            if mode == 1
+                axis3_idx = nobs_idx;
+                if isempty(axis3_idx)
+                    warning('Dataset %d: Could not map N_obs=%d to axis-3 index, skipping', dataset_num, nobs_val);
+                    continue;
+                end
+            else
+                if isempty(unique_designed_ratio)
+                    warning('Dataset %d: side-length ratio grid unavailable in mode=2, skipping', dataset_num);
+                    continue;
+                end
+                if isempty(designed_ratio_val)
+                    warning('Dataset %d: missing designed/actual side-length ratio, skipping in mode=2', dataset_num);
+                    continue;
+                end
+                axis3_idx = find(abs(unique_designed_ratio - designed_ratio_val) < 1e-10, 1);
+                if isempty(axis3_idx)
+                    [~, axis3_idx] = min(abs(unique_designed_ratio - designed_ratio_val));
+                end
+            end
+            
+            % Validate repetition index
+            if rep_idx < 1 || rep_idx > max_rep
+                warning('Dataset %d: Invalid repetition index %d (max=%d), skipping', dataset_num, rep_idx, max_rep);
+                continue;
+            end
+            
+            indices = [snr_idx, theta_idx, axis3_idx, rep_idx];
+            
+            % Process current dataset
+            try
+                % Load result data
+                data = load(fullfile(folder_path, result_files(i).name));
+
+                if ~isempty(dataset_metrics.Aout{indices(1), indices(2), indices(3), indices(4)})
+                    collision_count = collision_count + 1;
+                end
+                
+                % Store original and clean observations (4D indexing)
+                dataset_metrics.Y{indices(1), indices(2), indices(3), indices(4)} = dataset.Y;
+                dataset_metrics.Y_clean{indices(1), indices(2), indices(3), indices(4)} = dataset.Y_clean;
+                dataset_metrics.A0_noiseless{indices(1), indices(2), indices(3), indices(4)} = dataset.A0_noiseless;
+                % Store ground truth data
+                if isfield(data, 'dataset_A0')
+                    dataset_metrics.A0{indices(1), indices(2), indices(3), indices(4)} = data.dataset_A0{1};
+                end
+                if isfield(data, 'dataset_X0')
+                    dataset_metrics.X0{indices(1), indices(2), indices(3), indices(4)} = data.dataset_X0{1};
+                end
+                
+                % Store reconstruction data directly without flipping check
+                if isfield(data, 'Xout')
+                    dataset_metrics.Xout{indices(1), indices(2), indices(3), indices(4)} = data.Xout{1};
+                end
+                if isfield(data, 'Aout')
+                    dataset_metrics.Aout{indices(1), indices(2), indices(3), indices(4)} = data.Aout{1};
+                end
+                if isfield(data, 'bout')
+                    dataset_metrics.bout{indices(1), indices(2), indices(3), indices(4)} = data.bout{1};
+                end
+                nobs_from_x0 = NaN;
+                nobs_per_kernel = [];
+                if isfield(data, 'dataset_X0') && ~isempty(data.dataset_X0)
+                    [nobs_from_x0, nobs_per_kernel] = infer_nobs_from_x0(data.dataset_X0{1});
+                end
+                if isfinite(nobs_from_x0)
+                    dataset_metrics.Nobs_at_axis3(indices(1), indices(2), indices(3), indices(4)) = nobs_from_x0;
+                    nobs_from_x0_count = nobs_from_x0_count + 1;
+                else
+                    dataset_metrics.Nobs_at_axis3(indices(1), indices(2), indices(3), indices(4)) = nobs_val;
+                    nobs_from_param_count = nobs_from_param_count + 1;
+                end
+                dataset_metrics.Nobs_param_at_axis3(indices(1), indices(2), indices(3), indices(4)) = nobs_val;
+                dataset_metrics.Nobs_per_kernel_at_axis3{indices(1), indices(2), indices(3), indices(4)} = nobs_per_kernel;
+                if isfinite(nobs_from_x0) && abs(nobs_from_x0 - nobs_val) > 1e-10
+                    nobs_mismatch_count = nobs_mismatch_count + 1;
+                end
+                if ~isempty(designed_ratio_val)
+                    dataset_metrics.side_length_ratio_at_axis3(indices(1), indices(2), indices(3), indices(4)) = designed_ratio_val;
+                end
+                
+                % Calculate metrics for original order
+                if isfield(data, 'Xout') && isfield(data, 'dataset_X0') && ...
+                   ~isempty(data.Xout{1}) && ~isempty(data.dataset_X0{1}) && ...
+                   isfield(data, 'Aout') && isfield(data, 'dataset_A0')
+                    % Get quality metrics without flipping
+                    %[~, quality_scores] = detect_kernel_flip(data.dataset_X0, data.Xout, data.dataset_A0, data.Aout, true);
+                    kk = dataset.A0_noiseless;
+                    [~, quality_scores] = detect_kernel_flip(data.dataset_X0, data.Xout, kk, data.Aout, true);
+                    % Store metrics from original order
+                    kernel_quality_final = mean(quality_scores.no_flip.kernel_similarity);
+                    dataset_metrics.kernel_quality_final(indices(1), indices(2), indices(3), indices(4)) = kernel_quality_final;
+
+                    act_sim_final = mean(quality_scores.no_flip.activation_similarity);
+                    dataset_metrics.activation_similarity_final(indices(1), indices(2), indices(3), indices(4)) = act_sim_final;
+
+                    % Calculate demixing score
+                    [demixing_score, ~] = computeDemixingMetric(data.Xout{1});
+                    dataset_metrics.demixing_score(indices(1), indices(2), indices(3), indices(4)) = demixing_score;
+                    
+                    % Calculate combined score
+                    dataset_metrics.combined_activationScore(indices(1), indices(2), indices(3), indices(4)) = ...
+                        computeCombined_activationScore(demixing_score, act_sim_final);
+                end
+                
+                % Load metrics from trajectories
+                extras = data.extras{1};
+                dataset_metrics.extras{indices(1), indices(2), indices(3), indices(4)} = extras;
+                if isstruct(extras) && isfield(extras, 'phase1')
+                    % Store trajectories
+                    if isfield(extras.phase1, 'kernel_quality_factors')
+                        kq_traj = extras.phase1.kernel_quality_factors;
+                        dataset_metrics.kernel_quality_trajectory{indices(1), indices(2), indices(3), indices(4)} = kq_traj;
+                    end
+                    
+                    if isfield(extras.phase1, 'activation_metrics')
+                        act_traj = extras.phase1.activation_metrics;
+                        dataset_metrics.activation_similarity_trajectory{indices(1), indices(2), indices(3), indices(4)} = act_traj;
+                    end
+                    
+                    % Store other phase1 metrics
+                    if isfield(extras.phase1, 'residuals')
+                        dataset_metrics.residuals{indices(1), indices(2), indices(3), indices(4)} = extras.phase1.residuals;
+                    end
+                    if isfield(extras.phase1, 'relative_changes')
+                        dataset_metrics.relative_changes{indices(1), indices(2), indices(3), indices(4)} = extras.phase1.relative_changes;
+                    end
+                end
+                
+                % Store runtime
+                if isfield(extras, 'runtime')
+                    dataset_metrics.runtime(indices(1), indices(2), indices(3), indices(4)) = extras.runtime;
+                end
+                
+            catch ME
+                warning('Error processing file %s: %s', result_files(i).name, ME.message);
+                continue;
+            end
+        end
+        
+        % Display progress
+        fprintf('Processed batch %d/%d\n', batch, num_batches);
+    end
+
+    if collision_count > 0
+        warning('loadMetricDataset_new:AxisCollisions', ...
+            '%d axis-slot collisions detected; later dataset overwrites earlier entry.', collision_count);
+    end
+    if nobs_mismatch_count > 0
+        warning('loadMetricDataset_new:NobsMismatch', ...
+            ['Detected %d dataset(s) where N_obs parameter disagrees with X0-derived Nobs. ' ...
+             'metrics.Nobs_at_axis3 now uses X0-derived values when available.'], ...
+            nobs_mismatch_count);
+    end
+    fprintf(['Nobs assignment summary: from X0=%d, from params fallback=%d, ' ...
+             'param-vs-X0 mismatches=%d\n'], ...
+            nobs_from_x0_count, nobs_from_param_count, nobs_mismatch_count);
+    
+    % Print summary
+    print_metrics_summary(dataset_metrics);
+end
+
+function print_metrics_summary(metrics)
+    fprintf('\nDataset Parameters Summary:\n');
+    fprintf('- SNR: %d values [%.2e to %.2e]\n', ...
+        length(metrics.SNR_values), min(metrics.SNR_values), max(metrics.SNR_values));
+    fprintf('- Theta cap: %d values [%.2e to %.2e]\n', ...
+        length(metrics.theta_cap_values), min(metrics.theta_cap_values), max(metrics.theta_cap_values));
+    if isfield(metrics, 'Nobs_values') && ~isempty(metrics.Nobs_values)
+        fprintf('- Nobs: %d values [%.2f to %.2f]\n', ...
+            length(metrics.Nobs_values), min(metrics.Nobs_values), max(metrics.Nobs_values));
+    end
+    if isfield(metrics, 'side_length_ratio_values') && ~isempty(metrics.side_length_ratio_values)
+        fprintf('- Side-length ratio: %d values [%.3e to %.3e]\n', ...
+            length(metrics.side_length_ratio_values), ...
+            min(metrics.side_length_ratio_values), max(metrics.side_length_ratio_values));
+    end
+    if isfield(metrics, 'axis3_mode')
+        fprintf('- Axis-3 mode: %d (%s)\n', metrics.axis3_mode, metrics.axis3_name);
+    end
+    
+    % Show repetition dimension if it exists
+    if isfield(metrics, 'repetition_values')
+        fprintf('- Repetitions: %d values [%d to %d]\n', ...
+            length(metrics.repetition_values), min(metrics.repetition_values), max(metrics.repetition_values));
+        fprintf('- Array dimensions: %d × %d × %d × %d (SNR × theta × axis3 × rep)\n', ...
+            length(metrics.SNR_values), length(metrics.theta_cap_values), ...
+            length(metrics.axis3_values), length(metrics.repetition_values));
+    else
+        fprintf('- Array dimensions: %d × %d × %d (SNR × theta × axis3)\n', ...
+            length(metrics.SNR_values), length(metrics.theta_cap_values), ...
+            length(metrics.axis3_values));
+    end
+    
+    % Add summary of stored reconstruction data
+    fprintf('\nReconstruction Data Summary:\n');
+    non_empty_reconstructions = nnz(~cellfun(@isempty, metrics.Aout));
+    total_points = numel(metrics.Aout);
+    fprintf('- Stored reconstructions: %d/%d points (%.1f%%)\n', ...
+        non_empty_reconstructions, total_points, ...
+        100 * non_empty_reconstructions / total_points);
+end 
+
+function [nobs_val, nobs_per_kernel] = infer_nobs_from_x0(x0_raw)
+    nobs_val = NaN;
+    nobs_per_kernel = [];
+    if isempty(x0_raw)
+        return;
+    end
+    x0_use = x0_raw;
+    if iscell(x0_use)
+        if isempty(x0_use)
+            return;
+        end
+        x0_use = x0_use{1};
+    end
+    if ~isnumeric(x0_use) || ndims(x0_use) < 2
+        return;
+    end
+    if ndims(x0_use) == 2
+        nobs_per_kernel = nnz(x0_use ~= 0);
+    else
+        num_kernels = size(x0_use, 3);
+        nobs_per_kernel = zeros(1, num_kernels);
+        for k = 1:num_kernels
+            nobs_per_kernel(k) = nnz(x0_use(:,:,k) ~= 0);
+        end
+    end
+    nobs_val = mean(nobs_per_kernel, 'omitnan');
+end

@@ -7,7 +7,8 @@ function [ Aout, Xsol, extras ] = Asolve_Manopt_tunable_test( Y, Ain, lambda, Xs
     %       [ ... ] = Asolve_Manopt_tunable_test( ... , Xinit, Xpos, getbias, dispfun )
     %
 
-    load([fileparts(mfilename('fullpath')) '/../examples/Asolve_config_tunable.mat']); %#ok<*LOAD>
+    config_path = resolve_tunable_config('Asolve_config_tunable.mat');
+    load(config_path); %#ok<*LOAD>
     
     k = size(Ain);
     if (numel(k) > 2)

@@ -8,10 +8,12 @@ slprj/
 
 # Results and data directories
 examples/results/
+artifacts/
 *.pptx
 tests/
 projects/
 session/
+submission/
 # STM grid data files
 *.3ds
 # System files
@@ -24,6 +26,15 @@ Thumbs.db
 
 # Log files
 *.log
+*_LOGfile.txt
+log.txt
+ALL_SLICE_RUN_DONE.txt
+
+# Session / runtime clutter
+session*.mat
+matlab_workspace.mat
+config/runtime_tunables/
+config/worker_configs/
 
 # Specific directories to ignore
 results/synthetic_datasets/
@@ -33,3 +44,6 @@ results/parallel results/
 !examples/example_data/LDoS_sim.mat
 !examples/example_data/LDoS_single_defects_self=0.6_save.mat
 !examples/example_data/LDoS_single_defect_save.mat
+!config/*.mat
+!config/legacy/**
+!core/*.mat

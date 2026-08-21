@@ -1,5 +1,7 @@
 ## MT-SBD-STM script standardization (draft)
 
+Living repo map (streams, DAG, migration log): [`REPO_STRUCTURE.md`](REPO_STRUCTURE.md), [`REPO_STRUCTURE_DAG.md`](REPO_STRUCTURE_DAG.md), [`../history/repo_reorg.md`](../history/repo_reorg.md).
+
 This file defines a **minimal, high-reliability** standard for scripts in `scripts/` (e.g. `run_synthetic_data.m`, `run_real_data.m`). The goal is to make scripts **repeatable**, **auditable**, and easy to refactor without changing scientific intent.
 
 ### Goals (non-negotiable)

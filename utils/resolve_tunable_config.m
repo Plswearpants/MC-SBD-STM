@@ -4,8 +4,11 @@ function config_path = resolve_tunable_config(config_filename)
 %   1) run env from appdata/getenv:
 %        <run_env>/config/<config_filename>
 %        <run_env>/<config_filename>
-%   2) repository default:
-%        <repo>/examples/<config_filename>
+%   2) session runtime tunables:
+%        <repo>/config/runtime_tunables/<config_filename>
+%   3) repository templates (immutable defaults):
+%        <repo>/config/<config_filename>
+%        <repo>/config/Xsolve_config.mat or Asolve_config.mat (name remap)
 
     if nargin < 1 || isempty(config_filename)
         error('config_filename is required.');
@@ -26,7 +29,15 @@ function config_path = resolve_tunable_config(config_filename)
     end
 
     repo_root = fileparts(fileparts(mfilename('fullpath')));
-    candidates{end+1} = fullfile(repo_root, 'examples', config_filename);
+    candidates{end+1} = fullfile(repo_root, 'config', 'runtime_tunables', config_filename);
+    candidates{end+1} = fullfile(repo_root, 'config', config_filename);
+
+    % Fall back to immutable templates when no tunable copy exists yet.
+    if strcmp(config_filename, 'Xsolve_config_tunable.mat')
+        candidates{end+1} = fullfile(repo_root, 'config', 'Xsolve_config.mat');
+    elseif strcmp(config_filename, 'Asolve_config_tunable.mat')
+        candidates{end+1} = fullfile(repo_root, 'config', 'Asolve_config.mat');
+    end
 
     for i = 1:numel(candidates)
         if exist(candidates{i}, 'file')
@@ -35,6 +46,5 @@ function config_path = resolve_tunable_config(config_filename)
         end
     end
 
-    error('Unable to locate %s in run env or repository examples.', config_filename);
+    error('Unable to locate %s in run env, config/runtime_tunables, or config/.', config_filename);
 end
-

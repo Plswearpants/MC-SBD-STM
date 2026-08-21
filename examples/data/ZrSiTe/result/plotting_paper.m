@@ -289,8 +289,8 @@ end
 %% SI -- Compare the SNR before and after MCSBD_synthetic data
 if ~exist('build_denoising_sigma_metrics', 'file') || ~exist('metrics2heat_by_snr_interpolated', 'file')
     script_dir = fileparts(mfilename('fullpath'));
-    addpath(fullfile(script_dir, '..', '..', '..', '..', 'Dong_func'));
-    addpath(fullfile(script_dir, '..', '..', '..', '..', 'Dong_func', 'phase_space'));
+    addpath(fullfile(script_dir, '..', '..', '..', '..', 'lib'));
+    addpath(fullfile(script_dir, '..', '..', '..', '..', 'lib', 'phase_space'));
 end
 if ~exist('metrics', 'var') || isempty(metrics)
     error('SI synthetic comparison requires ''metrics'' in workspace.');
@@ -460,6 +460,22 @@ if isfield(metrics, 'side_length_ratio_values') && ...
         end
     end
 end
+
+%% Movies
+% one need to first load the results
+% Aout movie
+Aout_all = [result.Aout(:,:,:,1),result.Aout(:,:,:,2),result.Aout(:,:,:,3),result.Aout(:,:,:,4),result.Aout(:,:,:,5)];
+
+writePixelVideo(Aout_all, linspace(-800,800,200), 'Aout_movie.mp4', [1 5], 'bl', ...
+    {'Zr_2','Te_1','Si_1h','Si_1v','Te_2'}, ...
+    'Unit', 'mV', 'colormap','gray');
+
+% qpi movie
+writePixelVideo(result.comparison_qpi, linspace(-800,800,200), 'qpi_movie.mp4', [1 6], 'bl', ...
+    {'All','Zr_2','Te_1','Si_1h','Si_1v','Te_2'}, ...
+    'Unit', 'mV', 'colormap','invgray');
+
+
 
 %% Supplementary comparison between crop and Aout
 
