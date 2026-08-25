@@ -4,8 +4,9 @@ function [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, me
 %   [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, meta, cfg)
 %
 %   This wrapper encapsulates the core "block run" logic from
-%   scripts/MTSBD_block_realdata1.m:
-%       - builds A1_used = A1_all_matrix and Y_used = Y
+%   historical/real/hist_MTSBD_block_realdata1.m:
+%       - selects the slice and kernel subset to run
+%       - builds A1_used / Y_used / X_ref_used for that subset
 %       - computes trusted-slice weights via build_auto_trusted_slice_weights
 %       - sets lambda1_base and weighted/unweighted variants
 %       - configures params for MTSBD_all_slice_modified or MTSBD_Xregulated_all_slices
@@ -16,6 +17,21 @@ function [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, me
 %   Visualization-heavy and experimental sections from the legacy script
 %   (movies, additional padded runs, sequential runs) are intentionally
 %   omitted.
+%
+%   Presets (all opt-in; defaults reproduce the previous behavior):
+%       params.blockRun.slices_to_run   - slice subset ([] = all / prompt)
+%       params.blockRun.kernels_to_run  - kernel subset ([] = all kernels)
+%       cfg.blockRun.use_xinit_from_ref - seed X from the reference-slice
+%           activations instead of letting the solver cold-start (false)
+%       params.blockRun.save_tagged_output - write a slice/kernel-tagged .mat
+%           of the solver output (false)
+%       cfg.io.run_label                - filename stem for that tagged .mat
+%       cfg.blockRun.notify_on_completion  - beep/popup/webhook/email (false)
+%       params.blockRun.plot_observation_fidelity - fidelity-vs-slice plot (false)
+%
+%   Kernel-indexed presets (cfg.blockRun.lambda1_base, cfg.blockRun.lambda2)
+%   are specified over the FULL kernel set and sliced down to the requested
+%   kernel subset.
 
     arguments
         log  struct
@@ -37,8 +53,8 @@ function [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, me
     A1_all_matrix = data.real.proliferation.A1_all_matrix;
     eta_data3d    = data.real.proliferation.eta_data3d;
     kernel_sizes  = data.real.ref.kernel_sizes;
-    num_kernels   = params.refSlice.num_kernels;
-    num_slices_full = size(Y, 3);
+    num_kernels_full = params.refSlice.num_kernels;
+    num_slices_full  = size(Y, 3);
 
     % ---------------------------------------------------------------------
     % Optional: run only a chosen subset of slices
@@ -83,17 +99,57 @@ function [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, me
     end
 
     % ---------------------------------------------------------------------
-    % Determine trusted-slice step weights
+    % Optional: run only a chosen subset of kernels
+    % ---------------------------------------------------------------------
+    kernel_indices = 1:num_kernels_full;
+    if isfield(params, "blockRun") && isfield(params.blockRun, "kernels_to_run") ...
+            && ~isempty(params.blockRun.kernels_to_run)
+        kernel_indices = params.blockRun.kernels_to_run;
+    end
+
+    if islogical(kernel_indices)
+        if numel(kernel_indices) ~= num_kernels_full
+            error('params.blockRun.kernels_to_run logical mask must have length equal to number of kernels.');
+        end
+        kernel_indices = find(kernel_indices);
+    end
+
+    if ~isnumeric(kernel_indices) || isempty(kernel_indices)
+        error('params.blockRun.kernels_to_run must be a numeric vector of kernel indices or a logical mask.');
+    end
+    kernel_indices = kernel_indices(:).';
+    if any(mod(kernel_indices, 1) ~= 0)
+        error('params.blockRun.kernels_to_run must contain integer indices.');
+    end
+    if any(kernel_indices < 1) || any(kernel_indices > num_kernels_full)
+        error('params.blockRun.kernels_to_run indices must be within 1..%d.', num_kernels_full);
+    end
+    kernel_indices = unique(kernel_indices, 'stable');
+
+    num_kernels = numel(kernel_indices);
+    if num_kernels ~= num_kernels_full
+        fprintf('Running block algorithm on kernel subset (%d/%d): %s\n', ...
+            num_kernels, num_kernels_full, mat2str(kernel_indices));
+    end
+
+    % ---------------------------------------------------------------------
+    % Build the truncated run inputs
     % ---------------------------------------------------------------------
     Y_used = Y(:,:,slice_indices);
-    A1_used = A1_all_matrix;
+    A1_used = A1_all_matrix(kernel_indices);
     for k = 1:num_kernels
-        A1_used{k} = A1_all_matrix{k}(:,:,slice_indices);
+        A1_used{k} = A1_used{k}(:,:,slice_indices);
     end
     eta_data3d_used = eta_data3d(slice_indices);
+    kernel_sizes_used = kernel_sizes(kernel_indices, :);
 
-    % Optional: trusted-slice weighting (can be disabled if helper missing)
-    use_trusted_weights = true;
+    X_ref_used = [];
+    if isfield(data.real, "ref") && isfield(data.real.ref, "X_ref") && ~isempty(data.real.ref.X_ref)
+        X_ref_used = data.real.ref.X_ref(:,:,kernel_indices);
+    end
+
+    % Optional: trusted-slice weighting (still alpha; off unless requested)
+    use_trusted_weights = false;
     if isfield(cfg, "blockRun") && isfield(cfg.blockRun, "use_trusted_slice_weights") ...
             && ~isempty(cfg.blockRun.use_trusted_slice_weights)
         use_trusted_weights = logical(cfg.blockRun.use_trusted_slice_weights);
@@ -164,10 +220,13 @@ function [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, me
     miniloop_iteration = cfg.blockRun.miniloop_iteration;
     outerloop_maxIT    = cfg.blockRun.outerloop_maxIT;
 
-    params.lambda1_base = cfg.blockRun.lambda1_base;
-    if numel(params.lambda1_base) ~= num_kernels
-        error('params.lambda1_base must have one value per kernel.');
+    % lambda1_base is specified over the full kernel set, then sliced.
+    lambda1_base_full = cfg.blockRun.lambda1_base;
+    if numel(lambda1_base_full) < max(kernel_indices)
+        error(['cfg.blockRun.lambda1_base must cover all selected kernel indices ', ...
+            '(needs at least %d values, got %d).'], max(kernel_indices), numel(lambda1_base_full));
     end
+    params.lambda1_base = lambda1_base_full(kernel_indices);
 
     trusted_counts = params.slice_weight_details.trusted_counts;
     params.lambda1_weighted   = sqrt(trusted_counts) .* params.lambda1_base;
@@ -175,8 +234,22 @@ function [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, me
     params.lambda1            = params.lambda1_unweighted;
 
     params.phase2   = cfg.blockRun.phase2;
-    params.kplus    = ceil(cfg.blockRun.kplus_factor * kernel_sizes);
-    params.lambda2  = cfg.blockRun.lambda2;
+    params.kplus    = ceil(cfg.blockRun.kplus_factor * kernel_sizes_used);
+
+    % lambda2 is only meaningful per kernel; slice it when long enough,
+    % otherwise pass it through unchanged (legacy callers set fewer values).
+    lambda2_full = cfg.blockRun.lambda2;
+    if numel(lambda2_full) >= max(kernel_indices)
+        params.lambda2 = lambda2_full(kernel_indices);
+    else
+        if num_kernels ~= num_kernels_full
+            warning(['cfg.blockRun.lambda2 has %d values but kernel index %d was ', ...
+                'requested; passing lambda2 through without slicing.'], ...
+                numel(lambda2_full), max(kernel_indices));
+        end
+        params.lambda2 = lambda2_full;
+    end
+
     params.nrefine  = cfg.blockRun.nrefine;
     params.signflip = cfg.blockRun.signflip;
     params.xpos     = cfg.blockRun.xpos;
@@ -185,6 +258,25 @@ function [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, me
     params.use_Xregulated = cfg.blockRun.use_Xregulated;
     params.noise_var       = eta_data3d_used;
     params.kernel_update_order = 1:num_kernels;
+
+    % Optional: warm-start X from the reference-slice activations.
+    use_xinit_from_ref = false;
+    if isfield(cfg, "blockRun") && isfield(cfg.blockRun, "use_xinit_from_ref") ...
+            && ~isempty(cfg.blockRun.use_xinit_from_ref)
+        use_xinit_from_ref = logical(cfg.blockRun.use_xinit_from_ref);
+    end
+    if use_xinit_from_ref
+        if isempty(X_ref_used)
+            error(['runAllSlicesReal: cfg.blockRun.use_xinit_from_ref is set but ', ...
+                'data.real.ref.X_ref is missing. Run decomposeRefSliceReal first.']);
+        end
+        params.xinit = cell(1, num_kernels);
+        for k = 1:num_kernels
+            params.xinit{k}.X = X_ref_used(:,:,k);
+            params.xinit{k}.b = zeros(num_slices_run, 1);
+        end
+        fprintf('Warm-starting X from reference-slice activations.\n');
+    end
 
     use_custom_order = false;
     if cfg.blockRun.allow_custom_update_order
@@ -201,7 +293,7 @@ function [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, me
     end
     fprintf('Kernel update order: %s\n', mat2str(params.kernel_update_order));
 
-    kernel_sizes_single = squeeze(max(kernel_sizes, [], 1));
+    kernel_sizes_single = squeeze(max(kernel_sizes_used, [], 1));
     if use_trusted_weights
         fprintf('Trusted-slice weights ready. Counts per kernel: %s\n', mat2str(trusted_counts));
         fprintf('Lambda weighted (sqrt(trusted_count)): %s\n', mat2str(params.lambda1_weighted, 4));
@@ -216,8 +308,13 @@ function [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, me
     figure;
     dispfun = cell(1, num_kernels);
     for n = 1:num_kernels
+        if isempty(X_ref_used)
+            X_ref_disp = [];
+        else
+            X_ref_disp = X_ref_used(:,:,n);
+        end
         dispfun{n} = @(Y_, A, X, kernel_sizes_sing, kplus) ... %#ok<NASGU,INUSD>
-            showims(Y_used, A1_used{n}, data.real.ref.X_ref(:,:,n), A, X, kernel_sizes_single, kplus, 1);
+            showims(Y_used, A1_used{n}, X_ref_disp, A, X, kernel_sizes_single, kplus, 1);
     end
 
     % ---------------------------------------------------------------------
@@ -225,12 +322,12 @@ function [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, me
     % ---------------------------------------------------------------------
     if params.use_Xregulated
         [REG_Aout_ALL, REG_Xout_ALL, REG_bout_ALL, REG_extras_ALL] = ...
-            MTSBD_Xregulated_all_slices(Y_used, kernel_sizes, params, dispfun, ...
+            MTSBD_Xregulated_all_slices(Y_used, kernel_sizes_used, params, dispfun, ...
             A1_used, miniloop_iteration, outerloop_maxIT); %#ok<NASGU,INUSD>
         error('X-regulated variant not yet wired into data.real storage. Use non-regulated path for now.');
     else
         [Aout_ALL, Xout_ALL, bout_ALL, ALL_extras] = ...
-            MTSBD_all_slice_modified(Y_used, kernel_sizes, params, dispfun, ...
+            MTSBD_all_slice_modified(Y_used, kernel_sizes_used, params, dispfun, ...
             A1_used, miniloop_iteration, outerloop_maxIT);
     end
 
@@ -252,9 +349,70 @@ function [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, me
     data.real.blockRun.observation_fidelity = observation_fidelity;
     data.real.blockRun.trusted_counts     = trusted_counts;
     data.real.blockRun.slice_indices      = slice_indices;
+    data.real.blockRun.kernel_indices     = kernel_indices;
     data.real.blockRun.num_slices_full    = num_slices_full;
+    data.real.blockRun.num_kernels_full   = num_kernels_full;
+    data.real.blockRun.Y_used             = Y_used;
+    data.real.blockRun.A1_used            = A1_used;
+    data.real.blockRun.X_ref_used         = X_ref_used;
+    data.real.blockRun.kernel_sizes_used  = kernel_sizes_used;
+    data.real.blockRun.eta_data3d_used    = eta_data3d_used;
 
     meta.stage = "run";
+
+    % ---------------------------------------------------------------------
+    % Optional: slice/kernel-tagged solver output
+    % ---------------------------------------------------------------------
+    save_tagged = false;
+    if isfield(params, "blockRun") && isfield(params.blockRun, "save_tagged_output") ...
+            && ~isempty(params.blockRun.save_tagged_output)
+        save_tagged = logical(params.blockRun.save_tagged_output);
+    end
+
+    allslice_file = '';
+    if save_tagged
+        allslice_file = save_tagged_solver_output(log, cfg, Y_used, Aout_ALL, Xout_ALL, ...
+            bout_ALL, ALL_extras, A1_used, params, eta_data3d_used, observation_fidelity, ...
+            slice_indices, kernel_indices);
+        data.real.blockRun.output_file = allslice_file;
+    end
+
+    % ---------------------------------------------------------------------
+    % Optional: completion notification
+    % ---------------------------------------------------------------------
+    notify_on_completion = false;
+    if isfield(cfg, "blockRun") && isfield(cfg.blockRun, "notify_on_completion") ...
+            && ~isempty(cfg.blockRun.notify_on_completion)
+        notify_on_completion = logical(cfg.blockRun.notify_on_completion);
+    end
+    if notify_on_completion
+        if isempty(allslice_file)
+            allslice_file = fullfile(resolve_output_dir(log, cfg), 'blockrun_no_tagged_output.mat');
+        end
+        notify_allslice_completion(allslice_file, slice_indices, kernel_indices);
+    end
+
+    % ---------------------------------------------------------------------
+    % Optional: observation-fidelity plot
+    % ---------------------------------------------------------------------
+    plot_fidelity = false;
+    if isfield(params, "blockRun") && isfield(params.blockRun, "plot_observation_fidelity") ...
+            && ~isempty(params.blockRun.plot_observation_fidelity)
+        plot_fidelity = logical(params.blockRun.plot_observation_fidelity);
+    end
+    if plot_fidelity
+        figure;
+        hold on;
+        for i = 1:outerloop_maxIT
+            plot(1:num_slices_run, observation_fidelity(:,i), ...
+                'DisplayName', sprintf('Outer iteration %d', i));
+        end
+        hold off;
+        xlabel('Slice index (within run subset)');
+        ylabel('Observation fidelity');
+        title('Observation fidelity vs slice');
+        legend('show', 'Location', 'best');
+    end
 
     % ---------------------------------------------------------------------
     % Save block-run checkpoint (optional)
@@ -282,5 +440,80 @@ function [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, me
         fprintf('Saved block-run checkpoint to %s.\n', blockrun_file);
     end
 
+    LOGcomment = sprintf(['runAllSlicesReal: slices=%s, kernels=%s, miniloop=%d, ', ...
+        'outerloop=%d, lambda1=%s, trusted_weights=%d, xinit_from_ref=%d, output=%s'], ...
+        mat2str(slice_indices), mat2str(kernel_indices), miniloop_iteration, ...
+        outerloop_maxIT, mat2str(params.lambda1, 4), use_trusted_weights, ...
+        use_xinit_from_ref, allslice_file);
+    logBlockIfEnabled(log, "BR01A", LOGcomment);
+
 end
 
+
+function output_dir = resolve_output_dir(log, cfg)
+%RESOLVE_OUTPUT_DIR Prefer the project folder, then the run output root, then pwd.
+
+    output_dir = '';
+
+    if isstruct(log) && isfield(log, 'path') && ~isempty(log.path)
+        output_dir = log.path;
+        if iscell(output_dir); output_dir = output_dir{1}; end
+        output_dir = char(output_dir);
+    end
+
+    if isempty(output_dir) && isfield(cfg, 'io') && isfield(cfg.io, 'output_root') ...
+            && ~isempty(cfg.io.output_root)
+        output_dir = char(cfg.io.output_root);
+    end
+
+    if isempty(output_dir)
+        output_dir = pwd;
+    end
+
+    if ~exist(output_dir, 'dir')
+        mkdir(output_dir);
+    end
+end
+
+
+function allslice_file = save_tagged_solver_output(log, cfg, Y_used, Aout_ALL, Xout_ALL, ...
+    bout_ALL, ALL_extras, A1_used, params, eta_data3d_used, observation_fidelity, ...
+    slice_indices, kernel_indices)
+%SAVE_TAGGED_SOLVER_OUTPUT Write solver output under a slice/kernel-tagged name.
+
+    output_dir = resolve_output_dir(log, cfg);
+
+    run_label = 'realblock';
+    if isfield(cfg, 'io') && isfield(cfg.io, 'run_label') && ~isempty(cfg.io.run_label)
+        run_label = char(cfg.io.run_label);
+    end
+
+    if isscalar(slice_indices) || all(diff(slice_indices) == 1)
+        slice_tag = sprintf('s%dto%d', slice_indices(1), slice_indices(end));
+    else
+        slice_tag = sprintf('s%s', compact_index_tag(slice_indices));
+    end
+    kernel_tag = sprintf('k%s', compact_index_tag(kernel_indices));
+
+    allslice_file = fullfile(output_dir, sprintf('%s_%s_%s_ALL.mat', run_label, slice_tag, kernel_tag));
+    if exist(allslice_file, 'file')
+        ts = datestr(now, 'yyyymmdd_HHMMSS');
+        [fpath, fname, fext] = fileparts(allslice_file);
+        allslice_file = fullfile(fpath, sprintf('%s_%s%s', fname, ts, fext));
+    end
+
+    save(allslice_file, 'Y_used', 'Aout_ALL', 'Xout_ALL', 'bout_ALL', 'ALL_extras', ...
+        'A1_used', 'params', 'eta_data3d_used', 'observation_fidelity', ...
+        'slice_indices', 'kernel_indices', '-v7.3');
+    fprintf('Saved all-slice solver output to %s.\n', allslice_file);
+end
+
+
+function tag = compact_index_tag(idx)
+%COMPACT_INDEX_TAG Render an index vector as a filename-safe tag.
+    tag = mat2str(idx);
+    tag = strrep(tag, ' ', '');
+    tag = strrep(tag, '[', '');
+    tag = strrep(tag, ']', '');
+    tag = strrep(tag, ':', 'to');
+end

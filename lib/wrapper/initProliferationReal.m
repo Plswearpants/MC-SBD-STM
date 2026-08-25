@@ -4,15 +4,28 @@ function [log, data, params, meta, cfg] = initProliferationReal(log, data, param
 %   [log, data, params, meta, cfg] = initProliferationReal(log, data, params, meta, cfg)
 %
 %   This wrapper encapsulates the "Block 3: Find Most Isolated Points and
-%   Initialize Kernels" logic from scripts/MTSBD_block_realdata1.m, with
+%   Initialize Kernels" logic from historical/real/hist_MTSBD_block_realdata1.m, with
 %   the most-isolated-points AUTO mode treated as retired. It:
-%       - lets the user manually select kernel centers on Y_ref
+%       - previews the K1...Kn kernel ordering on the reference slice
+%       - resolves kernel centers (reference centers or manual selection)
 %       - proliferates kernels across all slices via initialize_kernels_proliferation
 %       - enforces kernel polarity per slice
 %       - converts A1_all to matrix form A1_all_matrix
 %       - estimates per-slice noise (eta_data3d)
 %
 %   Results are stored under data.real.proliferation.* and params.proliferation.
+%
+%   Presets:
+%       cfg.blockInit.center_source - 'manual' (default; click every center),
+%           'reference' (reuse data.real.ref.ref_kernel_centers), or 'ask'
+%           (show the ordering preview and prompt for one of the two).
+%       cfg.blockInit.show_order_preview - draw the K1...Kn preview figure
+%           before resolving centers (default: true for 'ask', else false).
+%       cfg.blockInit.reuse_noise_roi - estimate 3D noise from the reference
+%           background ROI instead of the whole volume (default: false).
+%
+%   Defaults preserve the original behavior: manual selection, no preview,
+%   whole-volume noise estimate.
 
     arguments
         log  struct
@@ -38,31 +51,110 @@ function [log, data, params, meta, cfg] = initProliferationReal(log, data, param
     num_slices = size(Y, 3);
 
     % ---------------------------------------------------------------------
-    % Manual kernel center selection (AUTO isolation logic retired)
+    % Resolve kernel centers (AUTO isolation logic retired)
     % ---------------------------------------------------------------------
-    fprintf('Manual kernel center selection mode...\n');
+    if ~isfield(cfg, "blockInit"); cfg.blockInit = struct(); end
 
-    figure('Name', 'Manual Kernel Center Selection (Proliferation)');
-    imagesc(Y_ref);
-    axis square;
-    title('Click on centers to select kernel positions. Press Enter when done.');
-    colormap(gray);
-    colorbar;
-
-    kernel_centers = zeros(num_kernels, 2);
-    for k = 1:num_kernels
-        fprintf('Click on center for kernel %d/%d\n', k, num_kernels);
-        [x, y] = ginput(1);
-        kernel_centers(k,:) = [round(y), round(x)];  % [row, col]
-
-        hold on;
-        scatter(x, y, 100, 'r', '*');
-        text(x+5, y+5, sprintf('K%d', k), 'Color', 'red', ...
-            'FontSize', 12, 'FontWeight', 'bold');
-        hold off;
+    center_source = 'manual';
+    if isfield(cfg.blockInit, "center_source") && ~isempty(cfg.blockInit.center_source)
+        center_source = lower(char(cfg.blockInit.center_source));
     end
 
-    fprintf('Kernel centers selected:\n');
+    show_order_preview = strcmp(center_source, 'ask');
+    if isfield(cfg.blockInit, "show_order_preview") && ~isempty(cfg.blockInit.show_order_preview)
+        show_order_preview = logical(cfg.blockInit.show_order_preview);
+    end
+
+    ref_kernel_centers = [];
+    if isfield(data.real.ref, "ref_kernel_centers")
+        ref_kernel_centers = data.real.ref.ref_kernel_centers;
+    end
+    have_ref_centers = ~isempty(ref_kernel_centers) && size(ref_kernel_centers, 1) == num_kernels;
+
+    % Show the K-index mapping so the user can keep K1...Kn consistent.
+    if show_order_preview && ~isfield(data.real.ref, "A1_ref")
+        warning('initProliferationReal: reference kernels unavailable; skipping order preview.');
+        show_order_preview = false;
+    end
+    if show_order_preview
+        A1_ref = data.real.ref.A1_ref;
+        figure('Name', 'Reference Kernel Order Preview');
+        tlo = tiledlayout(2, num_kernels, 'TileSpacing', 'compact', 'Padding', 'compact');
+        for k = 1:num_kernels
+            axk = nexttile(k);
+            imagesc(axk, A1_ref{k});
+            colormap(axk, gray);
+            colorbar(axk);
+            axis(axk, 'square');
+            title(axk, sprintf('K%d Reference Kernel', k));
+        end
+        axref = nexttile(num_kernels + 1, [1, num_kernels]);
+        imagesc(axref, Y_ref);
+        colormap(axref, gray);
+        colorbar(axref);
+        axis(axref, 'square');
+        hold(axref, 'on');
+        if have_ref_centers
+            for k = 1:num_kernels
+                scatter(axref, ref_kernel_centers(k,2), ref_kernel_centers(k,1), 120, 'r', '*', 'LineWidth', 1.5);
+                text(axref, ref_kernel_centers(k,2) + 4, ref_kernel_centers(k,1), sprintf('K%d', k), ...
+                    'Color', 'r', 'FontWeight', 'bold', 'FontSize', 11);
+            end
+            title(axref, 'Reference Slice with Ordered Centers (K1...Kn)');
+        else
+            title(axref, 'Reference Slice (reference centers unavailable)');
+        end
+        hold(axref, 'off');
+        title(tlo, 'Kernel Ordering Preview: use this K-index mapping consistently');
+    end
+
+    if strcmp(center_source, 'ask')
+        use_ref_centers = input('Use reference-kernel centers for all-slice initialization? [1 default / 0 reselect]: ');
+        if isempty(use_ref_centers)
+            use_ref_centers = 1;
+        end
+        if use_ref_centers
+            center_source = 'reference';
+        else
+            center_source = 'manual';
+        end
+    end
+
+    if strcmp(center_source, 'reference') && ~have_ref_centers
+        warning(['initProliferationReal: reference kernel centers unavailable; ', ...
+            'falling back to manual selection.']);
+        center_source = 'manual';
+    end
+
+    if strcmp(center_source, 'reference')
+        kernel_centers = ref_kernel_centers;
+        fprintf('Using reference-kernel centers:\n');
+    else
+        fprintf('Manual kernel center selection mode...\n');
+
+        figure('Name', 'Manual Kernel Center Selection (Proliferation)');
+        imagesc(Y_ref);
+        axis square;
+        title('Click on centers to select kernel positions. Press Enter when done.');
+        colormap(gray);
+        colorbar;
+
+        kernel_centers = zeros(num_kernels, 2);
+        for k = 1:num_kernels
+            fprintf('Click on center for kernel %d/%d\n', k, num_kernels);
+            [x, y] = ginput(1);
+            kernel_centers(k,:) = [round(y), round(x)];  % [row, col]
+
+            hold on;
+            scatter(x, y, 100, 'r', '*');
+            text(x+5, y+5, sprintf('K%d', k), 'Color', 'red', ...
+                'FontSize', 12, 'FontWeight', 'bold');
+            hold off;
+        end
+
+        fprintf('Kernel centers selected:\n');
+    end
+
     for k = 1:num_kernels
         fprintf('Kernel %d: (%d, %d)\n', k, kernel_centers(k,1), kernel_centers(k,2));
     end
@@ -135,8 +227,22 @@ function [log, data, params, meta, cfg] = initProliferationReal(log, data, param
         end
     end
 
-    % Noise estimate per slice
-    eta_data3d = estimate_noise3D(Y, 'std');
+    % Noise estimate per slice, optionally reusing the reference background ROI
+    reuse_noise_roi = false;
+    if isfield(cfg.blockInit, "reuse_noise_roi") && ~isempty(cfg.blockInit.reuse_noise_roi)
+        reuse_noise_roi = logical(cfg.blockInit.reuse_noise_roi);
+    end
+
+    noise_roi = [];
+    if reuse_noise_roi && isfield(params, "refSlice") && isfield(params.refSlice, "noise_roi")
+        noise_roi = params.refSlice.noise_roi;
+    end
+
+    if ~isempty(noise_roi)
+        eta_data3d = estimate_noise3D(Y, 'std', noise_roi);
+    else
+        eta_data3d = estimate_noise3D(Y, 'std');
+    end
 
     % ---------------------------------------------------------------------
     % Store results
@@ -154,9 +260,15 @@ function [log, data, params, meta, cfg] = initProliferationReal(log, data, param
 
     params.proliferation.kernel_centers      = kernel_centers;
     params.proliferation.target_kernel_sizes = target_kernel_sizes;
+    params.proliferation.center_source       = center_source;
 
     % Stage remains "pre-run" (still preparation for block run)
     meta.stage = "pre-run";
+
+    LOGcomment = sprintf(['initProliferationReal: center_source=%s, centers=%s, ', ...
+        'num_slices=%d, num_kernels=%d, reuse_noise_roi=%d'], ...
+        center_source, mat2str(kernel_centers), num_slices, num_kernels, reuse_noise_roi);
+    logBlockIfEnabled(log, "IP01R", LOGcomment);
 
 end
 

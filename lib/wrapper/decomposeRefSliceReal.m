@@ -5,7 +5,7 @@ function [log, data, params, meta, cfg] = decomposeRefSliceReal(log, data, param
 %
 %   This wrapper encapsulates the "Pick reference slice" + "Block 4: Find
 %   Optimal Activation for Reference Slice" logic from
-%   scripts/MTSBD_block_realdata1.m. It:
+%   historical/real/hist_MTSBD_block_realdata1.m. It:
 %       - lets the user choose a reference slice and number of kernels
 %       - initializes kernels on the reference slice (initialize_kernels)
 %       - enforces kernel polarity
@@ -13,8 +13,17 @@ function [log, data, params, meta, cfg] = decomposeRefSliceReal(log, data, param
 %       - runs MT_SBD on the reference slice
 %       - stores results under data.real and params.refSlice
 %
-%   Retired pieces (SNR computation, padded reference run, manual X
-%   comparison) are intentionally omitted.
+%   Kernel centers chosen during initialization are captured and stored as
+%   data.real.ref.ref_kernel_centers so downstream proliferation can reuse
+%   the same K1...Kn ordering instead of asking for the centers again.
+%
+%   Retired pieces (padded reference run, manual X comparison) are
+%   intentionally omitted.
+%
+%   Presets:
+%       params.refSlice.interactive - when explicitly false, the reference
+%           slice and kernel count are taken from cfg.reference defaults
+%           without prompting (both defaults must then be set).
 
     arguments
         log  struct
@@ -34,10 +43,26 @@ function [log, data, params, meta, cfg] = decomposeRefSliceReal(log, data, param
     % ---------------------------------------------------------------------
     % 4_pre: Pick reference slice and number of kernels
     % ---------------------------------------------------------------------
-    figure;
-    d3gridDisplay(Y, rangetype);
-    params.refSlice.ref_slice = input('Enter reference slice number: ');
-    num_kernels = input('enter the number of kernels you wish to apply: ');
+    ask_user = true;
+    if isfield(params, "refSlice") && isfield(params.refSlice, "interactive") ...
+            && ~isempty(params.refSlice.interactive) && ~params.refSlice.interactive
+        ask_user = false;
+    end
+
+    if ask_user
+        figure;
+        d3gridDisplay(Y, rangetype);
+        params.refSlice.ref_slice = input('Enter reference slice number: ');
+        num_kernels = input('enter the number of kernels you wish to apply: ');
+        close;
+    else
+        % Non-interactive: keep any slice already pinned in params, then fall
+        % back to the cfg defaults below.
+        if ~isfield(params.refSlice, 'ref_slice')
+            params.refSlice.ref_slice = [];
+        end
+        num_kernels = [];
+    end
 
     if isempty(params.refSlice.ref_slice) && isfield(cfg, "reference") && ~isempty(cfg.reference.default_ref_slice)
         params.refSlice.ref_slice = cfg.reference.default_ref_slice;
@@ -45,7 +70,11 @@ function [log, data, params, meta, cfg] = decomposeRefSliceReal(log, data, param
     if isempty(num_kernels) && isfield(cfg, "reference") && ~isempty(cfg.reference.default_num_kernels)
         num_kernels = cfg.reference.default_num_kernels;
     end
-    close;
+
+    if isempty(num_kernels)
+        error(['decomposeRefSliceReal: number of kernels is undefined. Set ', ...
+            'cfg.reference.default_num_kernels or enable params.refSlice.interactive.']);
+    end
 
     % Validate input
     if isempty(params.refSlice.ref_slice) || ~isnumeric(params.refSlice.ref_slice) || ...
@@ -72,6 +101,8 @@ function [log, data, params, meta, cfg] = decomposeRefSliceReal(log, data, param
     % ---------------------------------------------------------------------
     % Initialize or reuse reference kernels
     % ---------------------------------------------------------------------
+    ref_kernel_centers = [];
+
     use_existing_kernels = false;
     if isfield(data.real, 'ref') && isfield(data.real.ref, 'A1_ref') ...
             && isfield(data.real.ref, 'A1_ref_crop') && isfield(data.real.ref, 'kernel_sizes')
@@ -88,6 +119,9 @@ function [log, data, params, meta, cfg] = decomposeRefSliceReal(log, data, param
         A1_ref_crop = data.real.ref.A1_ref_crop;
         kernel_sizes = data.real.ref.kernel_sizes;
         num_kernels = numel(A1_ref);
+        if isfield(data.real.ref, 'ref_kernel_centers')
+            ref_kernel_centers = data.real.ref.ref_kernel_centers;
+        end
         fprintf('Reusing %d existing reference kernels.\n', num_kernels);
     else
         same_size   = cfg.reference.same_size;
@@ -97,10 +131,11 @@ function [log, data, params, meta, cfg] = decomposeRefSliceReal(log, data, param
         if same_size
             square_size = cfg.reference.square_size;
             kernel_sizes = repmat(square_size, [num_kernels, 1]);
-            [A1_ref, A1_ref_crop] = initialize_kernels(Y_ref, num_kernels, kernel_sizes, kerneltype, window_type);
+            [A1_ref, A1_ref_crop, ref_kernel_centers] = initialize_kernels(Y_ref, num_kernels, kernel_sizes, kerneltype, window_type);
         else
             A1_ref = cell(1, num_kernels);
             A1_ref_crop = cell(1, num_kernels);
+            ref_kernel_centers = zeros(num_kernels, 2);   % [row, col]
             kernel_sizes = zeros(num_kernels, 2);
             for k = 1:num_kernels
                 fprintf('Select region for kernel %d/%d\n', k, num_kernels);
@@ -109,6 +144,8 @@ function [log, data, params, meta, cfg] = decomposeRefSliceReal(log, data, param
                 A1_ref_crop{k} = A1_ref{k};
                 A1_ref{k} = proj2oblique(A1_ref{k});
                 kernel_sizes(k,:) = size(A1_ref_crop{k});
+                ref_kernel_centers(k,:) = [round(position(2) + position(4)/2), ...
+                                           round(position(1) + position(3)/2)];
             end
         end
     end
@@ -135,6 +172,14 @@ function [log, data, params, meta, cfg] = decomposeRefSliceReal(log, data, param
     % ---------------------------------------------------------------------
     eta_data = estimate_noise3D(Y_ref, 'std', noise_roi);
     params.refSlice.noise_roi = noise_roi;
+    if isvector(eta_data)
+        eta_data = eta_data(1);
+    end
+
+    % SNR diagnostic: kernel signal variance against the estimated noise level.
+    SNR_data = var(A1_ref{1}(:)) / eta_data;
+    fprintf('SNR_data = %g\n', SNR_data);
+    params.refSlice.SNR_data = SNR_data;
 
     figure;
     dispfun = cell(1, num_kernels);
@@ -174,6 +219,7 @@ function [log, data, params, meta, cfg] = decomposeRefSliceReal(log, data, param
     data.real.ref.A1_ref    = A1_ref;
     data.real.ref.A1_ref_crop = A1_ref_crop;
     data.real.ref.kernel_sizes = kernel_sizes;
+    data.real.ref.ref_kernel_centers = ref_kernel_centers;
     data.real.ref.A_ref     = A_ref;
     data.real.ref.X_ref     = X_ref;
     data.real.ref.b_ref     = b_ref;
@@ -184,9 +230,15 @@ function [log, data, params, meta, cfg] = decomposeRefSliceReal(log, data, param
     params.refSlice.kernel_sizes = kernel_sizes;
     params.refSlice.params_ref   = params_ref;
     params.refSlice.noise_roi    = noise_roi;
-
+    params.refSlice.ref_kernel_centers = ref_kernel_centers;
 
     meta.stage = "pre-run";
+
+    LOGcomment = sprintf(['decomposeRefSliceReal: ref_slice=%d, num_kernels=%d, ', ...
+        'kernel_sizes=%s, SNR_data=%.4g, centers_captured=%d'], ...
+        params.refSlice.ref_slice, num_kernels, mat2str(kernel_sizes), ...
+        SNR_data, size(ref_kernel_centers, 1));
+    logBlockIfEnabled(log, "RS01A", LOGcomment);
 
 end
 

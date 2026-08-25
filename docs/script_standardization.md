@@ -2,13 +2,13 @@
 
 Living repo map (streams, DAG, migration log): [`REPO_STRUCTURE.md`](REPO_STRUCTURE.md), [`REPO_STRUCTURE_DAG.md`](REPO_STRUCTURE_DAG.md), [`../history/repo_reorg.md`](../history/repo_reorg.md).
 
-This file defines a **minimal, high-reliability** standard for scripts in `scripts/` (e.g. `run_synthetic_data.m`, `run_real_data.m`). The goal is to make scripts **repeatable**, **auditable**, and easy to refactor without changing scientific intent.
+This file defines a **minimal, high-reliability** standard for scripts in `scripts/` (e.g. `synthetic_data.m`, `real_block.m`). The goal is to make scripts **repeatable**, **auditable**, and easy to refactor without changing scientific intent.
 
 ### Goals (non-negotiable)
 
 - **Reproducible**: all user choices are captured into `params`/`cfg` and saved, so a user can restart from any checkpoint with no missing inputs.
 - **Traceable**: each executed block is logged with `logUsedBlocks(...)`.
-- **Minimal surface area**: scripts orchestrate; heavy logic lives in functions (wrappers) under `Dong_func/` or `core/`/`utils/`.
+- **Minimal surface area**: scripts orchestrate; heavy logic lives in functions (wrappers) under `lib/` or `core/`/`utils`.
 - **Portable paths**: no hard-coded absolute paths unless explicitly required; prefer `fullfile(...)` + repo-relative discovery.
 
 ### Project-first UI model (checkpoint tree)

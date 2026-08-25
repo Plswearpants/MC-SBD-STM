@@ -1,45 +1,71 @@
-%% Centralized run configuration
+% Retired previous block script (hist_). Official path: scripts/real/real_block.m
+%% Block 01: Run setup and input loading
+% Actions:
+% - Initialize centralized run configuration.
+% - Resolve run-environment output root.
+% - Load Y from workspace or interactive MAT-entry picker.
+% - Prepare output folder and default range mode.
 cfg = init_config();
 
 % Optional run-environment output root.
 run_env_dir = getenv('MT_SBD_RUN_ENV');
 if isempty(run_env_dir) && isappdata(0, 'MT_SBD_RUN_ENV')
     run_env_dir = getappdata(0, 'MT_SBD_RUN_ENV');
-end
+end 
 
-% Optional runtime input loading: if Y is missing, allow selection from the
-% shared all-inputs directory configured by the runtime launcher.
+% Optional runtime input loading: if Y is missing, prompt user to select a
+% .mat file and then select the variable entry to use as Y.
 if ~exist('Y', 'var') || isempty(Y)
     all_inputs_dir = getenv('MT_SBD_ALL_INPUTS_DIR');
     if isempty(all_inputs_dir) && isappdata(0, 'MT_SBD_ALL_INPUTS_DIR')
         all_inputs_dir = getappdata(0, 'MT_SBD_ALL_INPUTS_DIR');
     end
     if isempty(all_inputs_dir) || ~exist(all_inputs_dir, 'dir')
-        error(['Y is not in workspace and MT_SBD_ALL_INPUTS_DIR is not set. ', ...
-            'Load Y manually or start via runtime launcher.']);
+        all_inputs_dir = pwd;
     end
 
-    input_candidates = dir(fullfile(all_inputs_dir, '*.mat'));
-    if isempty(input_candidates)
-        error('No .mat input files found in %s.', all_inputs_dir);
+    [selected_name, selected_path] = uigetfile({'*.mat', 'MAT-files (*.mat)'}, ...
+        'Select MAT file containing Y', all_inputs_dir);
+    if isequal(selected_name, 0)
+        error('No MAT file selected. Y is required to continue.');
+    end
+    selected_file = fullfile(selected_path, selected_name);
+
+    file_vars = whos('-file', selected_file);
+    if isempty(file_vars)
+        error('Selected MAT file has no variables: %s', selected_file);
     end
 
-    fprintf('Y not found in workspace. Select input file from %s:\n', all_inputs_dir);
-    for ii = 1:numel(input_candidates)
-        fprintf('  %d) %s\n', ii, input_candidates(ii).name);
-    end
-    selected_idx = input('Enter file index: ');
-    if isempty(selected_idx) || selected_idx < 1 || selected_idx > numel(input_candidates)
-        error('Invalid input file selection.');
+    var_names = {file_vars.name};
+    entry_labels = cell(1, numel(file_vars));
+    for ii = 1:numel(file_vars)
+        entry_labels{ii} = sprintf('%s [%s] %s', ...
+            file_vars(ii).name, file_vars(ii).class, mat2str(file_vars(ii).size));
     end
 
-    selected_file = fullfile(all_inputs_dir, input_candidates(selected_idx).name);
-    loaded_struct = load(selected_file);
-    if ~isfield(loaded_struct, 'Y')
-        error('Selected file does not contain variable Y: %s', selected_file);
+    default_idx = find(strcmp(var_names, 'Y'), 1);
+    if isempty(default_idx)
+        default_idx = 1;
     end
-    Y = loaded_struct.Y;
-    fprintf('Loaded Y from %s\n', selected_file);
+
+    [picked_idx, ok] = listdlg( ...
+        'PromptString', 'Select variable entry to use as Y:', ...
+        'SelectionMode', 'single', ...
+        'ListString', entry_labels, ...
+        'InitialValue', default_idx, ...
+        'ListSize', [520, 300]);
+    if ~ok || isempty(picked_idx)
+        error('No variable entry selected. Y is required to continue.');
+    end
+
+    selected_var = var_names{picked_idx};
+    loaded_struct = load(selected_file, selected_var);
+    Y = loaded_struct.(selected_var);
+    if ~isnumeric(Y) || ndims(Y) < 2
+        error(['Selected entry "%s" is not a numeric image stack/matrix. ', ...
+            'Please select the correct Y variable.'], selected_var);
+    end
+    fprintf('Loaded Y from %s (entry: %s)\n', selected_file, selected_var);
 end
 if isempty(run_env_dir)
     output_root = pwd;
@@ -50,10 +76,17 @@ else
     end
 end
 
-%% Before Run Standardize
+% - Action: Set display range mode for interactive previews.
 rangetype ='dynamic';
 
-%% Pick reference slice
+%% Block 02: Prepare for the reference slice run
+% Actions:
+% - Select and validate reference slice + number of kernels.
+% - Normalize full volume and project to oblique manifold.
+% - Extract/display reference slice.
+% - Initialize reference kernels and enforce polarity consistency.
+% - Estimate noise level from reused ROI.
+% - Compute optional SNR diagnostic.
 figure;
 d3gridDisplay(Y,rangetype);
 params.ref_slice = input('Enter reference slice number: ');
@@ -86,7 +119,7 @@ colorbar;
 title(sprintf('Reference Slice %d', params.ref_slice));
 axis square;
 close();
-%% Initialize reference kernels
+% - Action: Initialize reference kernels.
 % draw square on the data to include as many visible ripples of the scattering as possible 
 same_size = 1;
 kerneltype = "selected";
@@ -97,10 +130,11 @@ if same_size
     %[square_size] = squareDrawSize(Y_ref);
     square_size = [80,80];
     kernel_sizes = repmat(square_size,[num_kernels,1]);
-    [A1_ref, A1_ref_crop] = initialize_kernels(Y_ref, num_kernels, kernel_sizes, kerneltype, window_type);
+    [A1_ref, A1_ref_crop, ref_kernel_centers] = initialize_kernels(Y_ref, num_kernels, kernel_sizes, kerneltype, window_type);
 else
     A1_ref = cell(1, num_kernels);
     A1_ref_crop = cell(1, num_kernels);
+    ref_kernel_centers = zeros(num_kernels, 2); % [row, col]
     kernel_sizes = zeros(num_kernels, 2); % Store sizes of each kernel [height, width]
     for k = 1:num_kernels
         fprintf('Select region for kernel %d/%d\n', k, num_kernels);
@@ -111,6 +145,7 @@ else
         A1_ref{k} = proj2oblique(A1_ref{k});
         % Store the kernel size
         kernel_sizes(k,:) = size(A1_ref_crop{k});
+        ref_kernel_centers(k,:) = [round(position(2) + position(4)/2), round(position(1) + position(3)/2)];
     end
 end
 for k = 1:num_kernels
@@ -127,7 +162,7 @@ for k = 1:num_kernels
     axis square;
 end
 
-%% Noise level determination
+% - Action: Estimate noise level from reference ROI.
 % Reuse the background rectangle from volume normalize (no second ROI pick).
 if ~exist('noise_roi', 'var') || isempty(noise_roi)
     if isfield(params, 'noise_roi') && ~isempty(params.noise_roi)
@@ -142,11 +177,14 @@ if isvector(eta_data)
     eta_data = eta_data(1);
 end
 
-%% (Opt) determine SNR
+% - Action: Compute optional SNR diagnostic.
 SNR_data= var(A1_ref{1}(:))/eta_data;
 fprintf('SNR_data = %d', SNR_data);
 
-%% Find Optimal Activation for Reference Slice
+%% Block 03: Reference slice run and visualize result
+% Actions:
+% - Configure and run MT_SBD on the reference slice.
+% - Visualize reference-slice reconstruction outputs.
 % Set up display functions
 figure;
 dispfun = cell(1,  num_kernels);
@@ -156,7 +194,7 @@ end
 
 % SBD settings.
 miniloop_iteration = 1;
-outerloop_maxIT= 2;
+outerloop_maxIT= 6;
 %params_ref.energy = energy_selected(params.ref_slice);
 params_ref.lambda1 = [0.02, 0.02, 0.02, 0.02, 0.02];  % regularization parameter for Phase I
 params_ref.phase2 = false;
@@ -180,195 +218,71 @@ params_ref.noise_var = eta_data;
 % Run and save
 [A_ref, X_ref, b_ref, extras_ref] = MT_SBD(Y_ref, kernel_sizes, params_ref, dispfun, A1_ref, miniloop_iteration, outerloop_maxIT);
 
-%% Visualize Reference result 
+% - Action: Visualize reference-slice result.
 [Y_rec,Y_rec_all] = visualizeRealResult(Y_ref,A_ref, X_ref, b_ref, extras_ref);
 
-%% Find Most Isolated Points and Initialize ALL Kernels (retire the most isolated points logic)
+%% Block 04: Prepare for block run
+% Actions:
+% - Preview K1...Kn ordering and center mapping on reference slice.
+% - Choose center source (default reference centers, or manual reselection).
+% - Initialize all-slice kernels and enforce polarity per slice/kernel.
+% - Convert kernel stacks to matrix form and estimate 3D noise.
+% - Configure truncation slice/kernel subset and derived run inputs.
+% - Initialize xinit from reference activations.
+% - Configure trusted-slice weighting inputs (default unweighted).
 num_slices = size(Y,3);
 
-% Choose method for kernel center selection
-fprintf('Choose method for kernel center selection:\n');
-fprintf('1. Find most isolated points automatically\n');
-fprintf('2. Manually select 3 kernel centers\n');
-choice = input('Enter choice (1 or 2): ');
-
-if choice == 1
-    fprintf('Calculating isolation scores and finding most isolated points...\n');
-    
-    % Choose target kernel sizes first
-    type = cfg.isolation.target_kernel_size_type;
-    if strcmp(type, 'ref_kernel_sizes')
-        target_kernel_sizes = squeeze(kernel_sizes(params.ref_slice,:,:));
-    elseif strcmp(type, 'kernel_sizes_cap')
-        target_kernel_sizes = squeeze(max(kernel_sizes,[],1));
-    elseif strcmp(type, 'kernel_sizes_all')
-        target_kernel_sizes = kernel_sizes;
-    end
-
-    % Get defect positions from X_ref
-    most_isolated_points = cell(1, num_kernels);
-    isolation_scores = cell(1, num_kernels);
-    defect_positions = cell(1, num_kernels);
-    num_defects = zeros(1, num_kernels);
-
-    % Create figure for activation value distributions
-    figure('Name', 'Activation Value Distributions');
+% Show kernel order explicitly (K1...Kn) before choosing center source.
+figure('Name', 'Reference Kernel Order Preview');
+tlo = tiledlayout(2, num_kernels, 'TileSpacing', 'compact', 'Padding', 'compact');
+for k = 1:num_kernels
+    axk = nexttile(k);
+    imagesc(axk, A1_ref{k});
+    colormap(axk, gray);
+    colorbar(axk);
+    axis(axk, 'square');
+    title(axk, sprintf('K%d Reference Kernel', k));
+end
+axref = nexttile(num_kernels + 1, [1, num_kernels]);
+imagesc(axref, Y_ref);
+colormap(axref, gray);
+colorbar(axref);
+axis(axref, 'square');
+hold(axref, 'on');
+if exist('ref_kernel_centers', 'var') && size(ref_kernel_centers,1) == num_kernels
     for k = 1:num_kernels
-        % Plot histogram of activation values
-        subplot(2, num_kernels, k);
-        activation_values = X_ref(:,:,k);
-        h = histogram(activation_values(activation_values > 0), 50);
-        set(gca, 'YScale', 'log');
-        title(sprintf('Kernel %d Activation Distribution', k));
-        xlabel('Activation Value');
-        ylabel('Frequency (log scale)');
-        
-        % Add vertical line for threshold
-        threshold = max(X_ref(:,:,k),[],'all') / cfg.isolation.activation_threshold_divisor;
-        %threshold = 0;
-        hold on;
-        xline(threshold, 'r--', 'Threshold');
-        hold off;
-        
-        % Plot cumulative distribution
-        subplot(2, num_kernels, k + num_kernels);
-        [counts, edges] = histcounts(activation_values(activation_values > 0), 50, 'Normalization', 'cdf');
-        stairs(edges(1:end-1), counts);
-        title(sprintf('Kernel %d Cumulative Distribution', k));
-        xlabel('Activation Value');
-        ylabel('Cumulative Frequency');
-        hold on;
-        xline(threshold, 'r--', 'Threshold');
-        hold off;
-        
-        % Get positions of defects above threshold
-        [rows, cols] = find(X_ref(:,:,k) > threshold);
-        defect_positions{k} = [rows, cols];
-        num_defects(k) = size(defect_positions{k}, 1);
-        fprintf('Kernel %d has %d defects above threshold %.4f\n', k, num_defects(k), threshold);
+        scatter(axref, ref_kernel_centers(k,2), ref_kernel_centers(k,1), 120, 'r', '*', 'LineWidth', 1.5);
+        text(axref, ref_kernel_centers(k,2) + 4, ref_kernel_centers(k,1), sprintf('K%d', k), ...
+            'Color', 'r', 'FontWeight', 'bold', 'FontSize', 11);
     end
+    title(axref, 'Reference Slice with Ordered Centers (K1...Kn)');
+else
+    title(axref, 'Reference Slice (reference centers unavailable)');
+end
+hold(axref, 'off');
+title(tlo, 'Kernel Ordering Preview: use this K-index mapping consistently');
 
-    % Calculate isolation scores for each kernel
-    for k = 1:num_kernels
-        if num_defects(k) == 0
-            warning('No defects found for kernel %d', k);
-            continue;
-        end
-        
-        % Create summed activation map of all other kernels
-        X_others = zeros(size(X_ref(:,:,1)));
-        for l = 1:num_kernels
-            if l ~= k
-                X_others = X_others + X_ref(:,:,l);
-            end
-        end
-        
-        % Get positions of defects in other kernels
-        [other_rows, other_cols] = find(X_others > max(X_others,[],'all')/10);
-        other_positions = [other_rows, other_cols];
-        
-        % Use target kernel size for boundary check
-        half_kernel_size = floor(target_kernel_sizes(k,:)/2);
-        
-        % First filter out points too close to boundaries
-        valid_points = true(num_defects(k), 1);
-        for i = 1:num_defects(k)
-            y = defect_positions{k}(i,1);
-            x = defect_positions{k}(i,2);
-            
-            if y <= half_kernel_size(1) || y >= size(X_ref,1) - half_kernel_size(1) || ...
-               x <= half_kernel_size(2) || x >= size(X_ref,2) - half_kernel_size(2)
-                valid_points(i) = false;
-            end
-        end
-        
-        % Only proceed with valid points
-        valid_defects = defect_positions{k}(valid_points,:);
-        if isempty(valid_defects)
-            error('No valid isolated points found for kernel %d - all points are too close to image boundaries', k);
-        end
-        
-        % Calculate isolation scores only for valid points
-        S_k = zeros(size(valid_defects, 1), 1);
-        for i = 1:size(valid_defects, 1)
-            diffs = other_positions - valid_defects(i,:);
-            distances = sum(diffs.^2, 2);
-            S_k(i) = min(distances);
-        end
-        
-        % Find the most isolated point among valid points
-        [max_score, max_idx] = max(S_k);
-        valid_indices = find(valid_points);
-        max_idx = valid_indices(max_idx);
-        
-        most_isolated_points{k} = defect_positions{k}(max_idx,:);
-        isolation_scores{k} = S_k;
-        
-        fprintf('Kernel %d: Most isolated point at (%d,%d) with score %.2f\n', ...
-            k, most_isolated_points{k}(1), most_isolated_points{k}(2), max_score);
-    end
+use_ref_centers = input('Use reference-kernel centers for all-slice initialization? [1 default / 0 reselect]: ');
+if isempty(use_ref_centers)
+    use_ref_centers = 1;
+end
 
-    % Visualize the results
-    figure('Name', 'Isolation Analysis');
-    for k = 1:num_kernels
-        subplot(2, num_kernels, k);
-        imagesc(X_ref(:,:,k));
-        hold on;
-        scatter(defect_positions{k}(:,2), defect_positions{k}(:,1), 50, 'w', 'o');
-        if ~isempty(most_isolated_points{k})
-            scatter(most_isolated_points{k}(2), most_isolated_points{k}(1), 100, 'r', '*');
-        end
-        title(sprintf('Kernel %d', k));
-        colorbar;
-        axis square;
-        hold off;
-        
-        subplot(2, num_kernels, k + num_kernels);
-        X_others = zeros(size(X_ref(:,:,1)));
-        for l = 1:num_kernels
-            if l ~= k
-                X_others = X_others + X_ref(:,:,l);
-            end
-        end
-        imagesc(X_others);
-        hold on;
-        if ~isempty(most_isolated_points{k})
-            scatter(most_isolated_points{k}(2), most_isolated_points{k}(1), 100, 'r', '*');
-        end
-        title(sprintf('Other Kernels (not %d)', k));
-        colorbar;
-        axis square;
-        hold off;
-    end
-
-    % Store isolation analysis results
-    isolation_analysis = struct();
-    isolation_analysis.defect_positions = defect_positions;
-    isolation_analysis.most_isolated_points = most_isolated_points;
-    isolation_analysis.isolation_scores = isolation_scores;
-    isolation_analysis.num_defects = num_defects;
-
-    % Display most isolated points
-    figure;
-    imagesc(Y_ref);
-    hold on;
-    for k = 1:num_kernels
-        scatter(most_isolated_points{k}(2), most_isolated_points{k}(1), 100, 'r', '*');
-    end
-
-    % Convert most_isolated_points to matrix format
-    kernel_centers = zeros(num_kernels, 2);
-    for k = 1:num_kernels
-        if ~isempty(most_isolated_points{k})
-            kernel_centers(k,:) = most_isolated_points{k};
-        else
-            error('No isolated point found for kernel %d', k);
+if use_ref_centers
+    if ~exist('ref_kernel_centers', 'var') || size(ref_kernel_centers,1) ~= num_kernels
+        warning('Reference kernel centers unavailable; falling back to manual reselection.');
+        use_ref_centers = 0;
+    else
+        kernel_centers = ref_kernel_centers;
+        fprintf('Using reference-kernel centers:\n');
+        for k = 1:num_kernels
+            fprintf('Kernel %d: (%d, %d)\n', k, kernel_centers(k,1), kernel_centers(k,2));
         end
     end
+end
 
-elseif choice == 2
-    fprintf('Manual kernel center selection mode...\n');
-    
+if ~use_ref_centers
+    fprintf('Manual kernel center reselection mode...\n');
+
     % Display the reference image for manual selection
     figure('Name', 'Manual Kernel Center Selection');
     imagesc(Y_ref);
@@ -376,32 +290,29 @@ elseif choice == 2
     title('Click on points to select kernel centers. Press Enter when done.');
     colormap(gray);
     colorbar;
-    
+
     % Get user clicks for kernel centers
     kernel_centers = zeros(num_kernels, 2);
     for k = 1:num_kernels
         fprintf('Click on center for kernel %d/%d\n', k, num_kernels);
         [x, y] = ginput(1);
         kernel_centers(k,:) = [round(y), round(x)]; % Convert to [row, col] format
-        
+
         % Mark the selected point
         hold on;
         scatter(x, y, 100, 'r', '*');
         text(x+5, y+5, sprintf('K%d', k), 'Color', 'red', 'FontSize', 12, 'FontWeight', 'bold');
         hold off;
     end
-    
+
     fprintf('Kernel centers selected:\n');
     for k = 1:num_kernels
         fprintf('Kernel %d: (%d, %d)\n', k, kernel_centers(k,1), kernel_centers(k,2));
     end
-    
-    % Use target kernel sizes from the reference slice
-    target_kernel_sizes = kernel_sizes;
-    
-else
-    error('Invalid choice. Please enter 1 or 2.');
 end
+
+% Use target kernel sizes from the reference slice
+target_kernel_sizes = kernel_sizes;
 
 % Initialize kernels for all slices
 A1_all = cell(num_slices, num_kernels);
@@ -456,7 +367,7 @@ init_results.kernel_sizes = target_kernel_sizes;
 
 fprintf('Kernel initialization complete for all slices.\n');
 
-%% Convert A1_all to matrix form and prepare noise
+% - Action: Convert A1_all to matrix form and prepare noise.
 num_slices = size(Y,3);
 A1_all_matrix = cell(num_kernels,1);
 for k = 1:num_kernels
@@ -474,14 +385,14 @@ else
     eta_data3d = estimate_noise3D(Y, 'std');
 end
 
-%% Orchastrate the truncation slices run 
+% - Action: Orchestrate truncation slices run inputs.
 
 % Configure the subset to run (global indices in the full dataset).
 % Examples:
 %   run_slice_idx = 1:80;
 %   run_kernel_idx = [1,2,5];
-run_slice_idx = 121:200;
-run_kernel_idx = [1,2,3,4];
+run_slice_idx = 121:141;
+run_kernel_idx = [1,2,3];
 
 % Validate requested truncation indices.
 if isempty(run_slice_idx) || any(run_slice_idx < 1) || any(run_slice_idx > size(Y,3))
@@ -509,7 +420,7 @@ run_num_kernels = numel(run_kernel_idx);
 fprintf('Truncated run configured: slices=%s, kernels=%s\n', ...
     mat2str(run_slice_idx), mat2str(run_kernel_idx));
 
-%% initialize xinit for all slices with reference slice
+% - Action: Initialize xinit for all slices using reference slice.
 params.xinit = cell(1, run_num_kernels);
 for k = 1:run_num_kernels
     params.xinit{k}.X = X_ref_used(:,:,k);
@@ -517,13 +428,12 @@ for k = 1:run_num_kernels
     params.xinit{k}.b = repmat(b_temp,[run_num_slices,1]);
 end
 
-%% Determine trusted-slice step weights (before all-slice run)
-% Optional: trusted-slice weighting (can be disabled or left empty).
-% Set this flag manually in this script if you want to use trusted slices
-% (requires build_auto_trusted_slice_weights.m on the path).
-use_trusted_weights = 0;           % 0 = unweighted (default), 1 = use trusted slices
+% - Action: Determine trusted-slice step weights (alpha; default off).
+% Optional: trusted-slice weighting is still ALPHA. Keep OFF by default.
+% Enable only for explicit experiments.
+use_trusted_weights = false;       % default: unweighted (all slices trusted)
 trusted_ratio_threshold_default = 1.5;
-use_default_manual_trusted_slices = true;
+use_default_manual_trusted_slices = false;
 show_trusted_plot = true;
 
 if use_trusted_weights
@@ -563,7 +473,7 @@ if ~use_trusted_weights
     params.slice_weight_details.trusted_ratio_threshold = trusted_ratio_threshold_default;
 end
 
-%% Run for all_slice
+%% Block 05: Run for all_slice
 % SBD settings.
 miniloop_iteration = 1;
 outerloop_maxIT= 5;
@@ -664,7 +574,8 @@ for i = 1:outerloop_maxIT
 end
 hold off
 
-%% convert Aout_ALL to cell format
+%% ~~~~~~~~~~~~~~~~~~~~~~~Visualization Blocks~~~~~~~~~~~~~~~~~~~~~~~
+% V00: Convert Aout_ALL to cell format
 [num_slices, num_kernels] = size(bout_ALL);
 Aout_ALL_cell = cell(num_slices, num_kernels);
 for s = 1:num_slices
@@ -673,17 +584,17 @@ for s = 1:num_slices
     end
 end
 
-%% Kernels movies 
+%% V01: Kernels movies 
 for k = 1:length(Aout_ALL)
     figure;
     d3gridDisplay(((Aout_ALL{k})), 'dynamic')
 end
-%% QPI movies 
+%% V02: QPI movies 
 for k = 1:length(Aout_ALL)
     figure;
     d3gridDisplay((qpiCalculate(Aout_ALL{k})), 'dynamic',-1)
 end
-%% Plot gaussianed activation
+%% V03: Plot gaussianed activation
 Xout_gaussian = zeros(size(Xout_ALL));
 kernel_size = size(Aout_ALL_cell{1,1});
 for i = 1:size(Xout_ALL, 3)
@@ -691,7 +602,7 @@ for i = 1:size(Xout_ALL, 3)
     figure; imagesc(Xout_gaussian(:,:,i)); colormap("gray"); axis square
     title(sprintf('Kernel type %d', i))
 end
-%% Create reconstruction for all slices
+%% V04: Create reconstruction for all slices
 Y_rec = zeros(size(Y_used));
 for i = 1:size(Y_used,3)
     for k = 1:num_kernels
@@ -701,7 +612,7 @@ end
 figure;
 d3gridDisplay(Y_rec, 'dynamic')
 
-%% Create reconstruction for initialized all slices
+%% V05: Create reconstruction for initialized all slices
 Y_init = zeros(size(Y_used));
 
 tic;
@@ -715,7 +626,7 @@ toc;
 figure;
 d3gridDisplay(Y_init, 'dynamic')
 
-%% Reconstruction for per kernel initialize
+%% V06: Reconstruction for per kernel initialize
 Y_init_perkernel = zeros(size(Y_used,1),size(Y_used,2),size(Y_used,3),num_kernels);
 
 tic;
@@ -724,7 +635,7 @@ for k = 1:num_kernels
 end
 
 toc;
-%% Create reconstruction for each kernel type
+%% V07: Create reconstruction for each kernel type
 Y_rec_each = zeros([num_kernels,size(Y_used)]);
 for i = 1:size(Y_used,3)
     for k = 1:num_kernels
@@ -739,7 +650,7 @@ for k = 1:num_kernels
     FT_QPI_Y_rec_each(k,:,:,:) = qpiCalculate(squeeze(Y_rec_each(k,:,:,:)));
 end
 
-%% Normalize and combine Y_rec_each and its FT-QPI using method 2 
+%% V08: Normalize and combine Y_rec_each and its FT-QPI using method 2
 % Reshape Y_rec_each and FT_QPI_Y_rec_each to combine all kernels
 %Y_rec_show_Full = [];
 qpi_Y_rec_show_Full = [];
@@ -757,12 +668,12 @@ end
 % Combine normalized reconstructions and their FT-QPI
 %Y_rec_ALL_show_norm = [Y_rec_show_Full; qpi_Y_rec_show_Full];
 
-%% Display the normalized and combined results
+%% V09: Display the normalized and combined results
 figure;
 d3gridDisplay(Y_rec_ALL_show_norm, 'dynamic');
 title('Normalized Y_{rec}_-{each} and FT-QPI combined');
 
-%% Y, Y_rec and Y residual
+%% V10: Y, Y_rec and Y residual
 
 % Y and Y residual
 Y_resi = ALL_extras.phase1.residuals(:,:,:,end);
@@ -778,18 +689,18 @@ end
 % Combine normalized reconstructions and their FT-QPI
 Y_show_norm = [Y_full_visualize; qpi_Y_full_visualize];
 
-%% write the video 
+%% V11: Write the video
 gridVideoWriter(rot90(Y_show_norm), V, 'dynamic', 100, 'invgray', 0, [800 800]);
 
 % delay unit? 
-%% QPI movies 
+%% V12: QPI movies
 for k = 1:length(Aout_ALL)
     figure;
     d3gridDisplay(qpiCalculate(Aout_ALL{k}), 'dynamic')
 end
 
-%% ~~~~~~~~~~~~~~~~~~~~~~~~~~Retired Blocks~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-%% compare the Xout vs X manual (retire)
+%% ~~~~~~~~~~~~~~~~~~~~~~~Retired Blocks (R-series)~~~~~~~~~~~~~~~~~~~~~~~
+%% R01: Compare the Xout vs X manual (retire)
 X0=zeros([size(Y_ref,1),size(Y_ref,2),length(defect_loc)]);
 for i =1:length(defect_loc)
     X0(:,:,i)=locationsToMask(defect_loc{i},[size(Y_ref,1),size(Y_ref,2)]);
@@ -798,7 +709,7 @@ end
 [X_ref_aligned, ~, ~] = alignActivationMaps(X0, X_ref, kernel_sizes);
 [X_similarity, ~] = computeActivationSimilarity(X0, X_ref_aligned, kernel_sizes,1);
 
-%% Pad the A_ref to be size defined by user, normalize and use them as the A1 (retire)
+%% R02: Pad the A_ref to user target size and use as A1 (retire)
 target_size = cfg.sliceRunPadded.target_size;
 kernel_sizes_pad = repmat(target_size,[num_kernels,1]);
 %kernel_sizes_pad = [[120,120];[120,120];[65,65]];
@@ -835,7 +746,7 @@ for k = 1:num_kernels
     params_ref.xinit{k}.X = X_ref(:,:,k);
     params_ref.xinit{k}.b = extras_ref.phase1.biter(k); 
 end
-%% Set ups before padded run (retire)
+%% R03: Setups before padded run (retire)
 % Set up display functions
 figure;
 dispfun = cell(1, num_kernels);
@@ -860,22 +771,22 @@ params_ref.Xsolve = cfg.sliceRunPadded.Xsolve;
 
 % noise variance for computeResidualQuality.m
 params_ref.noise_var = eta_data;
-%% Run the padded initialization (retire)
+%% R04: Run the padded initialization (retire)
 % 2. The fun part
 [A_ref_pad, X_ref_pad, b_ref_pad, extras_ref_pad] = MT_SBD(Y_ref, kernel_sizes_pad, params_ref, dispfun, A1_ref, miniloop_iteration, outerloop_maxIT);
-%% Visualize Padded result (retire)
+%% R05: Visualize padded result (retire)
 visualizeRealResult(Y_ref,A_ref_pad, X_ref_pad, b_ref_pad, extras_ref_pad);
-%% Reconstructed Y (retire) 
+%% R06: Reconstructed Y (retire) 
 Y_rec_pad = zeros([size(Y_ref),num_kernels]);
 for k = 1:num_kernels
     Y_rec_pad(:,:,k) = convfft2(A_ref_pad{1,k}, X_ref_pad(:,:,k)) + b_ref_pad(k);
 end
-%% Save the padded ones (retire) 
+%% R07: Save the padded ones (retire) 
 padfilename = sprintf('MTSBD_LiFeAs_%f meV.mat',1000*params_ref.energy);
 %save(padfilename,'Y_ref','A_ref_pad', 'X_ref_pad', 'b_ref_pad', 'extras_ref_pad', 'params_ref');
 save(padfilename,'Y_ref','A_ref', 'X_ref', 'b_ref', 'extras_ref', 'params_ref');
 
-%% Insert previous results (retire)
+%% R08: Insert previous results (retire)
 
 for i = 1:5
     % adjust the inplane shift
@@ -883,20 +794,20 @@ for i = 1:5
     A1_all_matrix{i}(:,:,80:130)=Aout_ALL{i};
 end
 
-%% (retire)
+%% R09: Slice a previous result window (retire)
 for i = 1:5
     % adjust the inplane shift
     A1_all_matrix{i} = A1_all_matrix{i}(:,:,70:90);
 end
 
-%% Visualize Reference result (retire)
+%% R10: Visualize reference result (retire)
 for i = 40: 41
     pp=struct();
     pp.phase1.residuals = ALL_extras.phase1.residuals(:,:,i,:);
     pp.phase1.quality_metrics = ALL_extras.phase1.quality_metrics;
     visualizeRealResult(Y_used(:,:,i), Aout_ALL_cell(i,:), Xout_ALL, bout_ALL(i,:), pp);
 end 
-%% Show FULL&QPI&QPI_padded (retire)
+%% R11: Show FULL & QPI & QPI_padded (retire)
 Aout_show_Full = [];
 for i = 1: size(Aout_Full_energy,1)
     Aout_show_Full = [Aout_show_Full,Aout_Full_energy{i}];
@@ -911,7 +822,7 @@ for i = 1: size(Aout_Full_energy,1)
 end
 figure;
 d3gridDisplay(qpi_show_Full, 'dynamic',-1)
-%% (retire)
+%% R12: Normalize QPI padded stack (retire)
 conv2
 qpi_show_Full_pad = [];
 for i = 1: size(Aout_Full_energy,1)
@@ -923,7 +834,7 @@ mid = qpiCalculate(Y_used);
 qpi_show_Full_pad = [qpi_show_Full_pad, (mid-min(mid,[],'all'))/max(mid,[],'all')];
 figure;
 d3gridDisplay(qpi_show_Full_pad, 'dynamic',-1)
-%% (retire)
+%% R13: Normalize and combine Aout/QPI stacks (retire)
 Aout_show_norm = Aout_show_Full;
 qpi_show_norm = qpi_show_Full;
 for i = 1: 200
@@ -934,7 +845,7 @@ ALL_show_norm = [Aout_show_norm;qpi_show_norm];
 figure; 
 d3gridDisplay(ALL_show_norm, 'dynamic');
 
-%% Pad the output kernels to target sizes (retire)
+%% R14: Pad output kernels to target sizes (retire)
 target_size = [110, 110];  % Same target size as used for reference kernels
 kernel_sizes_pad = repmat(target_size,[num_kernels,1]);
 
@@ -965,7 +876,7 @@ for s = 1:num_slices
     end
 end
 
-%% Convert A1_all_pad to matrix form and prepare noise (retire)
+%% R15: Convert A1_all_pad to matrix and prepare noise (retire)
 A1_all_pad_matrix = cell(num_kernels,1);
 for k = 1:num_kernels
     A1_all_pad_matrix{k} = zeros(size(A1_all_pad{1,k},1),size(A1_all_pad{1,k},2),num_slices);
@@ -976,7 +887,7 @@ end
 
 eta_data3d = estimate_noise3D(Y, 'std');  
 
-%% Run for all_pad_slice (retire)
+%% R16: Run for all_pad_slice (retire)
 % SBD settings.
 miniloop_iteration = 5;
 outerloop_maxIT= 5;
@@ -1020,10 +931,10 @@ else
         Y_used, kernel_sizes_pad, params, dispfun, A1_used, miniloop_iteration, outerloop_maxIT);
 end
 
-%% Save results (retire)
+%% R17: Save results (retire)
 save('LiFeAs_slices.mat', 'Y_used', 'Aout_ALL', 'Xout_ALL', 'bout_ALL', 'ALL_extras', 'energy_selected');
 
-%% convert Aout_ALL to cell format (retire)
+%% R18: Convert Aout_ALL to cell format (retire)
 Aout_ALL_cell = cell(num_slices, num_kernels);
 for s = 1:num_slices
     for k = 1:num_kernels
@@ -1031,7 +942,7 @@ for s = 1:num_slices
     end
 end
 
-%% Visualize result (retire) 
+%% R19: Visualize result (retire) 
 for i = 1: size(A1_all,1)
     pp=struct();
     pp.phase1.residuals = ALL_extras.phase1.residuals(:,:,i,:);
@@ -1039,7 +950,7 @@ for i = 1: size(A1_all,1)
     visualizeRealResult(Y_used(:,:,i), Aout_ALL_cell(i,:), Xout_ALL, bout_ALL(i,:), pp);
 end
 
-%% Block 5: Sequential Processing with MT_SBD.m (retire)
+%% R20: Sequential processing with MT_SBD.m (retire)
 % This block processes each slice individually using MT_SBD.m sequentially
 fprintf('\n=== SEQUENTIAL PROCESSING BLOCK ===\n');
 fprintf('Processing each slice individually with MT_SBD.m\n');
@@ -1199,12 +1110,12 @@ end
 
 fprintf('\nSequential processing complete!\n');
 
-%% Display the Y_show_norm (retire)
+%% R21: Display the Y_show_norm (retire)
 figure;
 d3gridDisplay(Y_show_norm(), 'dynamic');
 title('ALL combined');
 
-%%  (retire)
+%% R22: Display concatenated normalized Aout (retire)
 Aout_show = [];
 for i = 1: size(Aout_ALL,1)
     Aout_show = [Aout_show,mat2gray(Aout_ALL{i})];
@@ -1213,7 +1124,7 @@ end
 figure;
 d3gridDisplay(Aout_show, 'dynamic')
 
-%%  (retire)
+%% R23: Display concatenated normalized QPI (retire)
 qpi_show = [];
 for i = 1: size(Aout_ALL,1)
     qpi_show = [qpi_show,mat2gray(qpiCalculate(Aout_ALL{i}),[0,1])];
@@ -1222,14 +1133,14 @@ end
 figure;
 d3gridDisplay(qpi_show, 'dynamic')
 
-%% Merge 3 ZrSiTe runs (retire) 
+%% R24: Merge 3 ZrSiTe runs (retire) 
 Aout_Full_energy = cell(2,1);
 Aout_Full_energy{1,1}=C;
 Aout_Full_energy{2,1}=D;
 save('ZrSiTe_kernel1&2_FULL_[80,80].mat', 'Y_used','Aout_Full_energy', 'Xout_A1', 'Xout_A2');
 
 
-%% Visualize sequential results (retire)
+%% R25: Visualize sequential results (retire)
 fprintf('\n=== VISUALIZING SEQUENTIAL RESULTS ===\n');
 
 % Convert sequential results to matrix format for visualization

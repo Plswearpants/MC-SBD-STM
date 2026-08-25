@@ -1,4 +1,4 @@
-function [A1, A1_crop] = initialize_kernels(Y, num_kernels, kernel_sizes, kerneltype, window_type)
+function [A1, A1_crop, kernel_centers] = initialize_kernels(Y, num_kernels, kernel_sizes, kerneltype, window_type)
     % Inputs:
     %   Y: input image
     %   num_kernels: number of kernels to initialize
@@ -19,6 +19,7 @@ function [A1, A1_crop] = initialize_kernels(Y, num_kernels, kernel_sizes, kernel
     
     A1 = cell(1, num_kernels);
     A1_crop = cell(1, num_kernels);
+    kernel_centers = [];
 
     switch lower(kerneltype)
         case 'random'
@@ -34,6 +35,7 @@ function [A1, A1_crop] = initialize_kernels(Y, num_kernels, kernel_sizes, kernel
             end
 
         case 'selected'
+            kernel_centers = zeros(num_kernels, 2); % [row, col]
             % Create figure for selection
             fig = figure;
             imagesc(Y);
@@ -76,6 +78,7 @@ function [A1, A1_crop] = initialize_kernels(Y, num_kernels, kernel_sizes, kernel
                 y1 = round(position(2));
                 x2 = min(x1 + kernel_sizes(n,2) - 1, img_width);
                 y2 = min(y1 + kernel_sizes(n,1) - 1, img_height);
+                kernel_centers(n,:) = [round((y1 + y2)/2), round((x1 + x2)/2)];
 
                 selected_kernel = Y(y1:y2, x1:x2);
                 A1_crop{n} = selected_kernel;

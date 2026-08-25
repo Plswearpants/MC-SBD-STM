@@ -9,26 +9,29 @@ Keep in sync with [`REPO_STRUCTURE.md`](REPO_STRUCTURE.md) and
 ```mermaid
 flowchart TB
   subgraph real [RealDataStream]
-    Rpre[scripts/real/preprocess]
-    Rrun[MTSBD_block_realdata1 / run_real_data]
+    Rpre[scripts/real/real_preprocess]
+    Rrun[scripts/real/real_block]
+    Rfull[historical/real/hist_run_real_data combined]
     Rviz[plotting_paper / visualizeRealResult]
-    Renv[runs/ optional create_run_environment]
+    Rproj["project folder + *_LOGfile.txt"]
     Rpre --> Rrun --> Rviz
-    Renv --> Rrun
+    Rfull --> Rviz
+    Rpre --> Rproj
+    Rrun --> Rproj
+    Rfull --> Rproj
   end
 
   subgraph synOne [SyntheticSingleDataset]
-    Sgen[lib/wrapper/generateSyntheticData]
-    Srun[scripts/synthetic/run_synthetic_data]
-    Sviz[visualizeResults]
+    Srun[scripts/synthetic/synthetic_data]
+    Sviz[VR01A visualizeResults]
     Sproj[projects/ via createProjectStructure]
-    Sgen --> Srun --> Sviz
+    Srun --> Sviz
     Sproj --> Srun
   end
 
   subgraph synBatch [SyntheticParameterSpace]
     Bgen[scripts/phase_space/properGen_hierarchical]
-    Brun[scripts/phase_space/run_parallel_dataset]
+    Brun["scripts/phase_space/run_parallel_dataset\n(parfor -> SBD_test_multi_parallel)"]
     Bviz[visualize_dataset_metrics + lib/phase_space]
     Bdata[artifacts/synthetic]
     Bgen --> Brun --> Bviz
@@ -46,6 +49,7 @@ flowchart TB
   end
 
   Rrun --> Algo
+  Rfull --> Algo
   Srun --> Algo
   Brun --> Algo
   Wrap --> Lib
@@ -62,3 +66,7 @@ flowchart TB
 | 2 | scripts regroup | Done |
 | 3 | Artifact roots + real viz set | Done |
 | 4 | solvers / vendor / lib rename | Done |
+| 5 | Close docs/disk drift; `hist_` previous scripts; `RUN_` official trunks; two-way real path | Done |
+| 6 | Drop run-env; trial record is project folder + `*_LOGfile.txt` | Done |
+| 7 | Remove root stubs; park `hist_*` under `historical/`; drop `RUN_` prefix | Done |
+| 8 | Phase-space viz: independent B/V Run Section cells; drop master `run_build`/`run_visualize` | Done |

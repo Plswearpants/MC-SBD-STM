@@ -1,5 +1,7 @@
-function env = create_run_environment(run_dir, varargin)
-%CREATE_RUN_ENVIRONMENT Create a self-contained MT-SBD run folder.
+function env = hist_create_run_environment(run_dir, varargin)
+%HIST_CREATE_RUN_ENVIRONMENT Retired run-folder helper (hist_).
+%   Official trial record is the project folder + *_LOGfile.txt from the
+%   RUN_ trunks. Do not use this for new work.
 %   ENV = CREATE_RUN_ENVIRONMENT(RUN_DIR)
 %   ENV = CREATE_RUN_ENVIRONMENT(RUN_DIR, 'InputFiles', {'a.mat','b.3ds'})
 %   ENV = CREATE_RUN_ENVIRONMENT(..., 'SharedInputDir', 'runtime/all_inputs')
@@ -14,8 +16,9 @@ function env = create_run_environment(run_dir, varargin)
 %       - Asolve_config.mat
 %       - Xsolve_config_tunable.mat
 %       - Asolve_config_tunable.mat
-%     <run_dir>/run_mtsbd_block_realdata1.m
-%     <run_dir>/run_real_data.m
+%     <run_dir>/run_real_preprocess.m   (official split: .3ds -> Y)
+%     <run_dir>/run_real_block.m        (official split: Y -> results)
+%     <run_dir>/run_hist_real_data.m    (retired combined raw-to-result trunk)
 %     <run_dir>/activate_env.m
 %
 %   Launchers set MT_SBD_RUN_ENV so tunable solver configs are always read
@@ -107,10 +110,12 @@ function env = create_run_environment(run_dir, varargin)
         end
     end
 
-    write_launcher(run_dir, repo_root, 'run_mtsbd_block_realdata1.m', ...
-        fullfile(repo_root, 'scripts', 'real', 'MTSBD_block_realdata1.m'), shared_input_dir);
-    write_launcher(run_dir, repo_root, 'run_real_data.m', ...
-        fullfile(repo_root, 'scripts', 'real', 'run_real_data.m'), shared_input_dir);
+    write_launcher(run_dir, repo_root, 'run_real_preprocess.m', ...
+        fullfile(repo_root, 'scripts', 'real', 'real_preprocess.m'), shared_input_dir);
+    write_launcher(run_dir, repo_root, 'run_real_block.m', ...
+        fullfile(repo_root, 'scripts', 'real', 'real_block.m'), shared_input_dir);
+    write_launcher(run_dir, repo_root, 'run_hist_real_data.m', ...
+        fullfile(repo_root, 'historical', 'real', 'hist_run_real_data.m'), shared_input_dir);
     write_activate_launcher(run_dir, repo_root, shared_input_dir);
 
     write_input_manifest(run_dir, shared_input_dir, registered_inputs, copy_input_files);
@@ -126,8 +131,9 @@ function env = create_run_environment(run_dir, varargin)
     env.registered_inputs = registered_inputs;
     env.repo_root = repo_root;
     env.launchers = { ...
-        fullfile(run_dir, 'run_mtsbd_block_realdata1.m'), ...
-        fullfile(run_dir, 'run_real_data.m'), ...
+        fullfile(run_dir, 'run_real_preprocess.m'), ...
+        fullfile(run_dir, 'run_real_block.m'), ...
+        fullfile(run_dir, 'run_hist_real_data.m'), ...
         fullfile(run_dir, 'activate_env.m') ...
     };
 
@@ -202,7 +208,7 @@ function write_activate_launcher(run_dir, repo_root, shared_input_dir)
     fprintf(fid, 'clc;\n');
     fprintf(fid, 'run_env = ''%s'';\n', escape_single_quotes(run_dir));
     fprintf(fid, 'all_inputs_dir = ''%s'';\n', escape_single_quotes(shared_input_dir));
-    fprintf(fid, 'env = activate_run_environment(run_env, ''SharedInputDir'', all_inputs_dir);\n');
+    fprintf(fid, 'env = hist_activate_run_environment(run_env, ''SharedInputDir'', all_inputs_dir);\n');
     fprintf(fid, 'disp(env);\n');
 end
 

@@ -1,14 +1,13 @@
 # Scripts layout
 
-Entrypoints are grouped by stream:
+Entrypoints are grouped by stream. Previous scripts live under `historical/`
+with a `hist_` prefix.
 
 | Folder | Contents |
 |--------|----------|
-| [`real/`](real/) | Preprocess, real trunks, run-env helpers, postprocessing |
+| [`real/`](real/) | Official split trunks (`real_preprocess`, `real_block`); `preprocess_2d`; `viz/` |
 | [`real/viz/`](real/viz/) | Real-data diagnostic / illustration plots |
-| [`synthetic/`](synthetic/) | Single-dataset synthetic trunk |
-| [`phase_space/`](phase_space/) | Hierarchical dataset gen, parallel run, metrics viz |
-
-Compatibility stubs remain at this folder root for **script** entrypoints (they `run` the relocated file and emit a warning). Function entrypoints `create_run_environment` / `activate_run_environment` live only under `real/` — add that folder to path via `init_sbd` or call them with `run`/`addpath`.
+| [`synthetic/`](synthetic/) | Official `synthetic_data` |
+| [`phase_space/`](phase_space/) | `properGen_hierarchical` → `run_parallel_dataset` (`SBD_test_multi_parallel`) → `visualize_dataset_metrics` |
 
 See [`../docs/REPO_STRUCTURE.md`](../docs/REPO_STRUCTURE.md).

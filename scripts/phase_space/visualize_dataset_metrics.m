@@ -1,54 +1,84 @@
 %% ~~~~~~~~~~~~~ProperGen Results vis~~~~~~~~~~~~~~~~~~~~~
-% OUTLINE (jump to block names below):
-%   Setup
-%     - S0: Config
-%     - S1: Run Build + Visualization Pipelines
+%  One S0 control panel (reproduction). Each %% cell below is a complete
+%  MATLAB section: Run Section to execute just that block, or run the
+%  whole script to honor every cfg.build.* / cfg.plot.* flag.
 %
-%   Build Blocks
-%     - B1: Load Dataset Metrics
-%     - B2: Build Observation Fidelity
-%     - B3: Build Normalized Kernel Similarity
-%     - B4: Recompute Nobs from X0
-%     - B5: Build Denoising Metric
-%     - B6: Build NOR/LOO Metrics
+%  Typical use:
+%    1. Edit S0, Run Section on S0 (path init + cfg).
+%    2. Run Section on B1 (load), then B4/B5 as needed, then the V cells.
+%  Plot-only (metrics already in workspace): set every cfg.build.* false,
+%  Run S0, then Run Section on the V cell you want.
 %
-%   Visualization Blocks
-%     - V1: General Heatspace Views
-%     - V2: Defect-Density and Interpolated Heatmaps
-%     - V3: Interactive Inspectors
-%     - V4: Added Metric Heatmaps (Denoising + Nobs)
-%     - V5: sqrt(Nobs)-vs-SigmaRatio Scatter Diagnostics
-%     - V6: Defect Occurrence Diagnostics
-%     - V7: NOR/LOO vs Density
-%     - V8: Optional Combined/Legacy Views
+%  OUTLINE:
+%    S0  Config + path init
+%    B1  Load Dataset Metrics
+%    B2  Build Observation Fidelity
+%    B3  Build Normalized Kernel Similarity
+%    B4  Recompute Nobs from X0
+%    B5  Build Denoising Metric
+%    V1  General Heatspace Views          (3 figures if on)
+%    V2  Defect-Density / Interpolated    (6 figures if on)
+%    V3  Interactive Inspectors           (1 UI + click-spawned details)
+%    V4  Denoising + Nobs Heatmaps        (2 figures if on)
+%    V5  sqrt(Nobs) vs SigmaRatio scatter (2 + N_snr figures if on)
+%    V5b Linear-Fit Coefficient Sweeps    (N_snr + N_side figures if on)
+%    V6  Defect Occurrence Diagnostics    (3 figures if on)
+%    V8  Optional Combined/Legacy Views   (up to 5 figures if on)
+%    --- Exploration (WIP; not part of the main recipe) ---
+%    B6  Build NOR/LOO Metrics
+%    V7  NOR/LOO vs Density               (1 figure if on; needs B6)
 
 %% S0: Config (Control Panel - edit here)
+% Locate repo root even if MATLAB runs an unsaved Editor temp copy.
+repo_root = '';
+seeds = {fileparts(mfilename('fullpath')), pwd};
+w = which('init_sbd');
+if isempty(w); w = which('init_sbd.m'); end
+if ~isempty(w); seeds{end+1} = fileparts(w); end %#ok<AGROW>
+tried = {};
+for i = 1:numel(seeds)
+    d = seeds{i};
+    if isempty(d) || any(strcmp(tried, d)); continue; end
+    tried{end+1} = d; %#ok<AGROW>
+    while true
+        if exist(fullfile(d, 'init_sbd.m'), 'file')
+            repo_root = d;
+            break;
+        end
+        parent = fileparts(d);
+        if isempty(parent) || strcmp(parent, d); break; end
+        d = parent;
+    end
+    if ~isempty(repo_root); break; end
+end
+if isempty(repo_root)
+    error(['Could not locate init_sbd.m. cd to the MT-SBD-STM repo ', ...
+        '(or a subfolder), save this script if unsaved, then re-run.']);
+end
+addpath(repo_root);
+run(fullfile(repo_root, 'init_sbd.m'));
+
 cfg = default_config();
 
-% ===== Master switches =====
-cfg.run_build = false;      % true: run selected build blocks below.
-                           % false: skip building and use existing `metrics` in workspace.
-cfg.run_visualize = true;  % true: run selected plot blocks below.
-                           % false: do not generate figures.
-
-% ===== Build block switches (B1..B6) =====
+% ===== Build block switches (B1..B5) =====
+% Whole-file run and Run Section both honor these. Flip a flag here, re-run
+% S0, then Run Section on that block (or run the whole file).
 cfg.build.load_dataset = false;                 % B1: load dataset metrics from disk.
 cfg.build.observation_fidelity = false;         % B2: build observation fidelity metric tensors.
 cfg.build.normalized_kernel_similarity = false; % B3: optional normalized KS tensors (off if using KS from loaded metrics).
 cfg.build.recompute_nobs = true;               % B4: recompute Nobs from nonzero X0 occurrences.
 cfg.build.denoising_sigma = true;              % B5: build denoising + sigma + Gaussian GOF metrics.
-cfg.build.nor_loo = false;                      % B6: build NOR/LOO overlap metrics.
 
-% ===== Plot block switches (V1..V8) =====
-cfg.plot.v1_general_heatspace = false;              % V1: 3D/general heatspace views.
-cfg.plot.v2_defect_density_interpolated = false;    % V2: defect-density slices + interpolated 2D maps.
-cfg.plot.v3_interactive_inspectors = true;         % V3: clickable inspector + detailed dataset viewer.
-cfg.plot.v4_added_metric_heatmaps = false;          % V4: denoising/Nobs/GOF heatmaps.
-cfg.plot.v5_scatter_stacking_law = true;           % V5: stacking-law scatters (sqrt(Nobs)-based diagnostics).
-cfg.plot.v5_fit_parameter_sweeps = true;           % V5b: linear-fit coefficient sweeps (slope/intercept trends).
-cfg.plot.v6_defect_occurrence = false;              % V6: defect occurrence vs kernel metrics.
-cfg.plot.v7_nor_loo_density = false;                % V7: NOR/LOO vs density profiles.
-cfg.plot.v8_optional_views = false;                 % V8: optional combined-runs and legacy views.
+% ===== Plot block switches (V1..V6, V8) =====
+% Each flag gates one %% V cell. See that cell's comment for the figure list.
+cfg.plot.v1_general_heatspace = true;              % V1: 3 figures (3D metric picker, SNR=5 line profile, dual kernel|activation 3D).
+cfg.plot.v2_defect_density_interpolated = true;    % V2: 6 figures (3 density-slice heatmaps + 3 interpolated-by-SNR heatmaps).
+cfg.plot.v3_interactive_inspectors = true;         % V3: 1 inspector UI; click/Enter spawns kernel, residual, visualizeResults figures.
+cfg.plot.v4_added_metric_heatmaps = false;          % V4: 2 figures (denoising-ratio heatmaps + Nobs heatmaps; χ²/p-value commented out).
+cfg.plot.v5_scatter_stacking_law = true;           % V5: 2 + N_snr figures (mean scatter, per-kernel scatter, then one by-side-ratio figure per SNR).
+cfg.plot.v5_fit_parameter_sweeps = true;           % V5b: N_snr + N_side figures (slope/intercept vs side ratio, then vs SNR).
+cfg.plot.v6_defect_occurrence = false;              % V6: 3 figures (defects-vs-KS, defects-vs-KS by SNR, occurrence-vs-side-ratio).
+cfg.plot.v8_optional_views = false;                 % V8: up to 5 figures if both inner flags below are true.
 
 % ===== Key analysis parameters =====
 cfg.axis3_mode = 2;                % 1: N_obs axis, 2: side-length-ratio axis.
@@ -64,8 +94,6 @@ cfg.inspector_metric_type = 'combined'; % heatmap metric in unified inspector ('
 
 cfg.scatter_snr_targets = [3, 5, 7]; % target SNRs for scatter diagnostics (nearest bins used).
 cfg.scatter_side_ratio_cutoff = 0.23; % in V5 per-side-ratio plot: include side ratios <= this cutoff.
-cfg.selected_snr = 5;                % SNR used in NOR/LOO-vs-density block.
-cfg.selected_side_length_ratio = 0.175; % side-ratio used in NOR/LOO-vs-density block.
 
 % ===== Plot format handles =====
 cfg.plot_format.font_name = 'Arial'; % shared font family for V5 labels/titles.
@@ -76,137 +104,335 @@ cfg.plot_format.marker_size_mean = 22; % mean-mode marker size.
 cfg.plot_format.marker_size_kernel = 20; % per-kernel marker size.
 cfg.plot_format.legend_location = 'northwest'; % per-kernel legend location.
 
-cfg.enable_combined_runs_view = true; % in V8: include combined multi-run comparison plots.
-cfg.enable_legacy_view = false;        % in V8: include legacy visualization section.
+cfg.enable_combined_runs_view = true; % V8: pooled defects-vs-KS, by-SNR defects-vs-KS, 3-run 3D overlay.
+cfg.enable_legacy_view = false;        % V8: legacy 3D heatspace + prompted Detailed Results.
 
-%% S1: Run Build + Visualization
-if cfg.run_build
+% ===== Exploration (WIP): NOR/LOO — last cells in this script =====
+cfg.build.nor_loo = false;                      % B6: build NOR/LOO overlap metrics (under development).
+cfg.plot.v7_nor_loo_density = false;            % V7: 1 figure (NOR | LOO | NOR×LOO vs density). Needs B6.
+cfg.selected_snr = 5;                           % SNR used in V7 NOR/LOO-vs-density.
+cfg.selected_side_length_ratio = 0.175;         % side-ratio used in V7 NOR/LOO-vs-density.
+
+metric_colormap = slanCM('viridis');
+contour_levels = [0.95, 0.85];
+
 %% B1: Load Dataset Metrics
-    if cfg.build.load_dataset
-        metrics = loadMetricDataset_new(cfg.axis3_mode);
-    elseif ~exist('metrics', 'var') || isempty(metrics)
-        error('build.load_dataset=false requires seeded metrics input.');
-    end
-
-%% B2: Build Observation Fidelity
-    if cfg.build.observation_fidelity
-        metrics = build_observation_fidelity_metrics(metrics, cfg.axis3_mode);
-    end
-
-%% B3: Build Normalized Kernel Similarity
-    if cfg.build.normalized_kernel_similarity
-        metrics = build_normalized_kernel_similarity(metrics);
-    end
-
-%% B4: Recompute Nobs from X0
-    if cfg.build.recompute_nobs
-        metrics = recompute_nobs_from_x0(metrics);
-    end
-
-%% B5: Build Denoising Metric
-    if cfg.build.denoising_sigma
-        metrics = build_denoising_sigma_metrics(metrics, cfg.activation_gate_threshold, ...
-            'enableAlignment', cfg.enable_alignment, ...
-            'kplus', cfg.kplus, ...
-            'energyStride', cfg.energy_stride, ...
-            'storeResidualKernels', cfg.store_residual_kernels, ...
-            'sigmaMethod', cfg.sigma_method);
-    end
-
-%% B6: Build NOR/LOO Metrics
-    if cfg.build.nor_loo
-        metrics = build_nor_loo_metrics(metrics);
-    end
+if ~exist('cfg', 'var') || ~isstruct(cfg)
+    error('Run S0 (Config) first so cfg is in the workspace.');
+end
+if cfg.build.load_dataset
+    metrics = loadMetricDataset_new(cfg.axis3_mode);
 elseif ~exist('metrics', 'var') || isempty(metrics)
-    error('cfg.run_build=false requires an existing ''metrics'' variable in workspace.');
+    error('cfg.build.load_dataset=false requires seeded metrics in the workspace. Run B1 with load_dataset=true, or load metrics first.');
+else
+    fprintf('Using existing metrics (cfg.build.load_dataset=false).\n');
 end
 
-if cfg.run_visualize
-    metric_colormap = slanCM('viridis');
-    contour_levels = [0.95, 0.85];
+%% B2: Build Observation Fidelity
+if ~exist('cfg', 'var') || ~isstruct(cfg)
+    error('Run S0 (Config) first so cfg is in the workspace.');
+end
+if ~exist('metrics', 'var') || isempty(metrics)
+    error('No metrics in workspace. Run B1 first.');
+end
+if cfg.build.observation_fidelity
+    metrics = build_observation_fidelity_metrics(metrics, cfg.axis3_mode);
+else
+    fprintf('Skipping B2 (cfg.build.observation_fidelity=false).\n');
+end
+
+%% B3: Build Normalized Kernel Similarity
+if ~exist('cfg', 'var') || ~isstruct(cfg)
+    error('Run S0 (Config) first so cfg is in the workspace.');
+end
+if ~exist('metrics', 'var') || isempty(metrics)
+    error('No metrics in workspace. Run B1 first.');
+end
+if cfg.build.normalized_kernel_similarity
+    metrics = build_normalized_kernel_similarity(metrics);
+else
+    fprintf('Skipping B3 (cfg.build.normalized_kernel_similarity=false).\n');
+end
+
+%% B4: Recompute Nobs from X0
+if ~exist('cfg', 'var') || ~isstruct(cfg)
+    error('Run S0 (Config) first so cfg is in the workspace.');
+end
+if ~exist('metrics', 'var') || isempty(metrics)
+    error('No metrics in workspace. Run B1 first.');
+end
+if cfg.build.recompute_nobs
+    metrics = recompute_nobs_from_x0(metrics);
+else
+    fprintf('Skipping B4 (cfg.build.recompute_nobs=false).\n');
+end
+
+%% B5: Build Denoising Metric
+if ~exist('cfg', 'var') || ~isstruct(cfg)
+    error('Run S0 (Config) first so cfg is in the workspace.');
+end
+if ~exist('metrics', 'var') || isempty(metrics)
+    error('No metrics in workspace. Run B1 first.');
+end
+if cfg.build.denoising_sigma
+    metrics = build_denoising_sigma_metrics(metrics, cfg.activation_gate_threshold, ...
+        'enableAlignment', cfg.enable_alignment, ...
+        'kplus', cfg.kplus, ...
+        'energyStride', cfg.energy_stride, ...
+        'storeResidualKernels', cfg.store_residual_kernels, ...
+        'sigmaMethod', cfg.sigma_method);
+else
+    fprintf('Skipping B5 (cfg.build.denoising_sigma=false).\n');
+end
 
 %% V1: General Heatspace Views
-    if cfg.plot.v1_general_heatspace
-        metrics2heat_general(metrics, 2);
-        metrics2heat_general(metrics, 2, ...
-            'plot_mode', 'line_profile', ...
-            'metric_type', 'combined', ...
-            'snr_value', 5, ...
-            'interp_factor', 1, ...
-            'manual_colormap', metric_colormap);
-        metrics2heat_properGen(metrics, cfg.axis3_mode);
-    end
+% If cfg.plot.v1_general_heatspace=true, opens 3 figures:
+%   1) 3D scatter heatspace — a dialog asks which metric to color by
+%      (axes: defect density × axis-3 × SNR).
+%   2) Combined-activation line profile at SNR=5 — interpolated 2D map
+%      (density × axis-3) plus a live 1D profile after you draw a line.
+%   3) Dual 3D heatspace (two panels): kernel similarity | combined
+%      activation, averaged over repetitions.
+if ~exist('cfg', 'var') || ~isstruct(cfg)
+    error('Run S0 (Config) first so cfg is in the workspace.');
+end
+if ~exist('metrics', 'var') || isempty(metrics)
+    error('No metrics in workspace. Run B1 first.');
+end
+if ~exist('metric_colormap', 'var')
+    metric_colormap = slanCM('viridis');
+end
+if cfg.plot.v1_general_heatspace
+    metrics2heat_general(metrics, 2);
+    metrics2heat_general(metrics, 2, ...
+        'plot_mode', 'line_profile', ...
+        'metric_type', 'combined', ...
+        'snr_value', 5, ...
+        'interp_factor', 1, ...
+        'manual_colormap', metric_colormap);
+    metrics2heat_properGen(metrics, cfg.axis3_mode);
+else
+    fprintf('Skipping V1 (cfg.plot.v1_general_heatspace=false).\n');
+end
 
 %% V2: Defect-Density and Interpolated Heatmaps
-    if cfg.plot.v2_defect_density_interpolated
-        metrics2heat_by_defect_density(metrics, 'kernel', cfg.axis3_mode);
-        metrics2heat_by_snr_interpolated(metrics, 'kernel', cfg.axis3_mode, 5);
-        metrics2heat_by_snr_interpolated(metrics, 'kernel', cfg.axis3_mode, 5, metric_colormap, contour_levels);
-        metrics2heat_by_snr_interpolated(metrics, 'combined', cfg.axis3_mode, 1, metric_colormap, contour_levels);
-        metrics2heat_by_defect_density(metrics, 'combined', cfg.axis3_mode);
-        metrics2heat_by_defect_density(metrics, 'multiplied', cfg.axis3_mode);
-    end
+% If cfg.plot.v2_defect_density_interpolated=true, opens 6 figures:
+%   1) Kernel similarity: SNR × axis-3 slices, one subplot per defect density.
+%   2) Kernel similarity: interpolated density × axis-3 maps, one subplot
+%      per SNR (interp_factor=5, default colormap, no contours).
+%   3) Same kernel interpolated maps as (2), viridis + iso-contours 0.95/0.85.
+%   4) Combined activation: interpolated density × axis-3 maps, one subplot
+%      per SNR (interp_factor=1, viridis, iso-contours 0.95/0.85).
+%   5) Combined activation: SNR × axis-3 slices, one subplot per density.
+%   6) Kernel × activation product: SNR × axis-3 slices, one subplot per density.
+if ~exist('cfg', 'var') || ~isstruct(cfg)
+    error('Run S0 (Config) first so cfg is in the workspace.');
+end
+if ~exist('metrics', 'var') || isempty(metrics)
+    error('No metrics in workspace. Run B1 first.');
+end
+if ~exist('metric_colormap', 'var')
+    metric_colormap = slanCM('viridis');
+end
+if ~exist('contour_levels', 'var')
+    contour_levels = [0.95, 0.85];
+end
+if cfg.plot.v2_defect_density_interpolated
+    metrics2heat_by_defect_density(metrics, 'kernel', cfg.axis3_mode);
+    metrics2heat_by_snr_interpolated(metrics, 'kernel', cfg.axis3_mode, 5);
+    metrics2heat_by_snr_interpolated(metrics, 'kernel', cfg.axis3_mode, 5, metric_colormap, contour_levels);
+    metrics2heat_by_snr_interpolated(metrics, 'combined', cfg.axis3_mode, 1, metric_colormap, contour_levels);
+    metrics2heat_by_defect_density(metrics, 'combined', cfg.axis3_mode);
+    metrics2heat_by_defect_density(metrics, 'multiplied', cfg.axis3_mode);
+else
+    fprintf('Skipping V2 (cfg.plot.v2_defect_density_interpolated=false).\n');
+end
 
 %% V3: Interactive Inspectors
-    if cfg.plot.v3_interactive_inspectors
-        inspect_dataset_heatmap_unified(metrics, ...
-            cfg.inspector_fixed_snr, ...
-            cfg.inspector_metric_type, ...
-            cfg.axis3_mode, ...
-            1, ...
-            cfg.enable_sigma_analysis);
-    end
+% If cfg.plot.v3_interactive_inspectors=true, opens 1 figure immediately:
+%   Unified Inspector — interpolated heatmap of cfg.inspector_metric_type
+%   at cfg.inspector_fixed_snr, with SNR / density / axis-3 / rep fields.
+% Click a point (or type values + Enter) to spawn additional figures:
+%   visualizeResults details, kernel snapshot (input / GT / output per
+%   kernel at one energy slice), and residual kernels from the
+%   shift+gain+bias fit (if B5 stored them).
+if ~exist('cfg', 'var') || ~isstruct(cfg)
+    error('Run S0 (Config) first so cfg is in the workspace.');
+end
+if ~exist('metrics', 'var') || isempty(metrics)
+    error('No metrics in workspace. Run B1 first.');
+end
+if cfg.plot.v3_interactive_inspectors
+    inspect_dataset_heatmap_unified(metrics, ...
+        cfg.inspector_fixed_snr, ...
+        cfg.inspector_metric_type, ...
+        cfg.axis3_mode, ...
+        1, ...
+        cfg.enable_sigma_analysis);
+else
+    fprintf('Skipping V3 (cfg.plot.v3_interactive_inspectors=false).\n');
+end
 
 %% V4: Added Metric Heatmaps (Denoising + Nobs)
-    if cfg.plot.v4_added_metric_heatmaps
-        metrics2heat_by_snr_interpolated(metrics, 'denoising', cfg.axis3_mode, 1, metric_colormap);
-        %metrics2heat_by_snr_interpolated(metrics, 'denoising_chi2', cfg.axis3_mode, 1, metric_colormap);
-        %metrics2heat_by_snr_interpolated(metrics, 'denoising_pvalue', cfg.axis3_mode, 1, metric_colormap);
-        metrics2heat_by_snr_interpolated(metrics, 'nobs', cfg.axis3_mode, 1, metric_colormap);
-    end
+% If cfg.plot.v4_added_metric_heatmaps=true, opens 2 figures:
+%   1) Denoising ratio σ_in/σ_out: interpolated density × axis-3 maps,
+%      one subplot per SNR (viridis). Needs B5.
+%   2) Nobs: interpolated density × axis-3 maps, one subplot per SNR.
+%      Needs B4 (or loader Nobs). Two GOF heatmaps (χ², p-value) are
+%      commented out in this cell — uncomment to add them.
+if ~exist('cfg', 'var') || ~isstruct(cfg)
+    error('Run S0 (Config) first so cfg is in the workspace.');
+end
+if ~exist('metrics', 'var') || isempty(metrics)
+    error('No metrics in workspace. Run B1 first.');
+end
+if ~exist('metric_colormap', 'var')
+    metric_colormap = slanCM('viridis');
+end
+if cfg.plot.v4_added_metric_heatmaps
+    metrics2heat_by_snr_interpolated(metrics, 'denoising', cfg.axis3_mode, 1, metric_colormap);
+    %metrics2heat_by_snr_interpolated(metrics, 'denoising_chi2', cfg.axis3_mode, 1, metric_colormap);
+    %metrics2heat_by_snr_interpolated(metrics, 'denoising_pvalue', cfg.axis3_mode, 1, metric_colormap);
+    metrics2heat_by_snr_interpolated(metrics, 'nobs', cfg.axis3_mode, 1, metric_colormap);
+else
+    fprintf('Skipping V4 (cfg.plot.v4_added_metric_heatmaps=false).\n');
+end
 
 %% V5: sqrt(Nobs)-vs-SigmaRatio Scatter Diagnostics
-    if cfg.plot.v5_scatter_stacking_law
-        plot_nobs_vs_denoising_scatter(metrics, cfg);
-        plot_nobs_vs_denoising_by_side_ratio(metrics, cfg);
-    end
+% If cfg.plot.v5_scatter_stacking_law=true, opens 2 + N_snr figures
+% (N_snr = numel(cfg.scatter_snr_targets); default targets [3, 5, 7]):
+%   1) sqrt(Nobs) vs σ_in/σ_out, mean-over-slot mode — one subplot per
+%      selected SNR; color = side-length ratio when axis3_mode=2.
+%   2) sqrt(Nobs) vs σ_in/σ_out, per-kernel mode — one subplot per SNR,
+%      one color/fit per kernel.
+%   3..2+N_snr) One figure per selected SNR: per-kernel scatter tiled by
+%      side-length ratio (only ratios ≤ cfg.scatter_side_ratio_cutoff).
+% Needs B4 and B5. Side-ratio tiling is skipped when axis3_mode≠2.
+if ~exist('cfg', 'var') || ~isstruct(cfg)
+    error('Run S0 (Config) first so cfg is in the workspace.');
+end
+if ~exist('metrics', 'var') || isempty(metrics)
+    error('No metrics in workspace. Run B1 first.');
+end
+if cfg.plot.v5_scatter_stacking_law
+    plot_nobs_vs_denoising_scatter(metrics, cfg);
+    plot_nobs_vs_denoising_by_side_ratio(metrics, cfg);
+else
+    fprintf('Skipping V5 (cfg.plot.v5_scatter_stacking_law=false).\n');
+end
 
 %% V5b: Linear-Fit Coefficient Sweeps
-    if isfield(cfg.plot, 'v5_fit_parameter_sweeps') && cfg.plot.v5_fit_parameter_sweeps
-        plot_v5_fit_parameter_sweeps(metrics, cfg);
-    end
+% If cfg.plot.v5_fit_parameter_sweeps=true, opens N_snr + N_side figures
+% (one per SNR grid point, then one per side-length-ratio grid point):
+%   Per SNR: two panels — slope a and intercept b vs side-length ratio
+%   (one curve per kernel).
+%   Per side-length ratio: two panels — slope a and intercept b vs SNR
+%   (one curve per kernel).
+% Fits are y = a*sqrt(Nobs) + b on the per-kernel V5 scatter points.
+% Skipped when axis3_mode≠2. Needs B4 and B5.
+if ~exist('cfg', 'var') || ~isstruct(cfg)
+    error('Run S0 (Config) first so cfg is in the workspace.');
+end
+if ~exist('metrics', 'var') || isempty(metrics)
+    error('No metrics in workspace. Run B1 first.');
+end
+if isfield(cfg.plot, 'v5_fit_parameter_sweeps') && cfg.plot.v5_fit_parameter_sweeps
+    plot_v5_fit_parameter_sweeps(metrics, cfg);
+else
+    fprintf('Skipping V5b (cfg.plot.v5_fit_parameter_sweeps=false).\n');
+end
 
 %% V6: Defect Occurrence Diagnostics
-    if cfg.plot.v6_defect_occurrence
-        plot_defects_snr_kernel_similarity(metrics);
-        plot_defects_vs_kernel_similarity_by_snr(metrics);
-        plot_occurrence_vs_length_ratio_by_snr(metrics);
-    end
-
-%% V7: NOR/LOO vs Density
-    if cfg.plot.v7_nor_loo_density
-        plot_nor_loo_vs_density(metrics, cfg.selected_snr, cfg.selected_side_length_ratio);
-    end
+% If cfg.plot.v6_defect_occurrence=true, opens 3 figures:
+%   1) Average defect count vs kernel similarity, color = SNR
+%      (single scatter, log-x).
+%   2) Average defect count vs kernel similarity, one subplot per SNR,
+%      color = defect density.
+%   3) Occurrence vs side-length ratio at a prompted SNR — two panels:
+%      color = kernel similarity | color = combined activation.
+if ~exist('cfg', 'var') || ~isstruct(cfg)
+    error('Run S0 (Config) first so cfg is in the workspace.');
+end
+if ~exist('metrics', 'var') || isempty(metrics)
+    error('No metrics in workspace. Run B1 first.');
+end
+if cfg.plot.v6_defect_occurrence
+    plot_defects_snr_kernel_similarity(metrics);
+    plot_defects_vs_kernel_similarity_by_snr(metrics);
+    plot_occurrence_vs_length_ratio_by_snr(metrics);
+else
+    fprintf('Skipping V6 (cfg.plot.v6_defect_occurrence=false).\n');
+end
 
 %% V8: Optional Combined/Legacy Views
-    if cfg.plot.v8_optional_views
-        if cfg.enable_combined_runs_view
-            metrics1 = loadMetricDataset_new(1);
-            metrics2 = loadMetricDataset_new(1);
-            metrics3 = loadMetricDataset_new(1);
-            dataset_metrics_array = {metrics1, metrics2, metrics3};
-            run_names = {'Experiment 1', 'Experiment 2', 'Experiment 3'};
-            combined_metrics = combine_metrics_for_plotting(dataset_metrics_array);
-            plot_defects_snr_kernel_similarity(combined_metrics);
-            plot_defects_vs_kernel_similarity_by_snr(combined_metrics);
-            metrics2heat_multiple_runs(dataset_metrics_array, run_names, cfg.axis3_mode);
-        end
-        if cfg.enable_legacy_view
-            legacy_metrics = load_datasets_metrics();
-            metrics2heatspace(legacy_metrics);
-            visualize_heatspace_details(legacy_metrics);
-        end
+% If cfg.plot.v8_optional_views=true and both inner flags are true,
+% opens 5 figures. Turn an inner flag off to drop that group.
+% Combined runs (cfg.enable_combined_runs_view) — placeholder loads:
+%   1) Defects vs kernel similarity, color = SNR (three runs pooled).
+%   2) Defects vs kernel similarity, one subplot per SNR, color = density.
+%   3) Dual 3D overlay of the three named runs: kernel similarity |
+%      combined activation.
+% Legacy (cfg.enable_legacy_view) — load_datasets_metrics:
+%   4) Dual 3D heatspace (theta × area ratio × SNR): kernel similarity |
+%      combined activation.
+%   5) Same heatspace again, then prompts for a point and opens
+%      Detailed Results (visualizeResults).
+if ~exist('cfg', 'var') || ~isstruct(cfg)
+    error('Run S0 (Config) first so cfg is in the workspace.');
+end
+if cfg.plot.v8_optional_views
+    if cfg.enable_combined_runs_view
+        % Placeholder: three identical loads. Replace with distinct
+        % datasets and run_names before using combined-run plots.
+        metrics1 = loadMetricDataset_new(1);
+        metrics2 = loadMetricDataset_new(1);
+        metrics3 = loadMetricDataset_new(1);
+        dataset_metrics_array = {metrics1, metrics2, metrics3};
+        run_names = {'Experiment 1', 'Experiment 2', 'Experiment 3'};
+        combined_metrics = combine_metrics_for_plotting(dataset_metrics_array);
+        plot_defects_snr_kernel_similarity(combined_metrics);
+        plot_defects_vs_kernel_similarity_by_snr(combined_metrics);
+        metrics2heat_multiple_runs(dataset_metrics_array, run_names, cfg.axis3_mode);
     end
+    if cfg.enable_legacy_view
+        legacy_metrics = load_datasets_metrics();
+        metrics2heatspace(legacy_metrics);
+        visualize_heatspace_details(legacy_metrics);
+    end
+else
+    fprintf('Skipping V8 (cfg.plot.v8_optional_views=false).\n');
+end
+
+%% B6: Build NOR/LOO Metrics (exploration, WIP)
+% Under development. Not part of the main recipe. Run after B1 (and any
+% other build cells you need). Writes metrics.NOR and metrics.LOO.
+if ~exist('cfg', 'var') || ~isstruct(cfg)
+    error('Run S0 (Config) first so cfg is in the workspace.');
+end
+if ~exist('metrics', 'var') || isempty(metrics)
+    error('No metrics in workspace. Run B1 first.');
+end
+if cfg.build.nor_loo
+    metrics = build_nor_loo_metrics(metrics);
+else
+    fprintf('Skipping B6 (cfg.build.nor_loo=false).\n');
+end
+
+%% V7: NOR/LOO vs Density (exploration, WIP)
+% Under development. If cfg.plot.v7_nor_loo_density=true, opens 1 figure
+% (needs B6 NOR/LOO):
+%   Three panels at cfg.selected_snr and cfg.selected_side_length_ratio:
+%   NOR vs defect density | LOO vs defect density | NOR×LOO vs density.
+if ~exist('cfg', 'var') || ~isstruct(cfg)
+    error('Run S0 (Config) first so cfg is in the workspace.');
+end
+if ~exist('metrics', 'var') || isempty(metrics)
+    error('No metrics in workspace. Run B1 first.');
+end
+if cfg.plot.v7_nor_loo_density
+    plot_nor_loo_vs_density(metrics, cfg.selected_snr, cfg.selected_side_length_ratio);
+else
+    fprintf('Skipping V7 (cfg.plot.v7_nor_loo_density=false).\n');
 end
 
 function metrics = recompute_nobs_from_x0(metrics)
@@ -851,11 +1077,10 @@ function [nrow, ncol] = choose_subplot_layout_wide(nplots)
 end
 
 function cfg = default_config()
-    % Master execution toggles.
-    cfg.run_build = true;
-    cfg.run_visualize = true;
+    % Fallback recipe. S0 overrides every field after this call; keep the
+    % two in sync so a missed S0 line does not silently change behavior.
 
-    % Build control panel (B1..B6).
+    % Build control panel (B1..B5). NOR/LOO (B6) is exploration/WIP.
     cfg.build = struct( ...
         'load_dataset', false, ...
         'observation_fidelity', false, ...
@@ -864,17 +1089,17 @@ function cfg = default_config()
         'denoising_sigma', true, ...
         'nor_loo', false);
 
-    % Plot control panel (V1..V8).
+    % Plot control panel (V1..V6, V8). V7 NOR/LOO is exploration/WIP.
     cfg.plot = struct( ...
-        'v1_general_heatspace', false, ...
+        'v1_general_heatspace', true, ...
         'v2_defect_density_interpolated', true, ...
         'v3_interactive_inspectors', true, ...
-        'v4_added_metric_heatmaps', true, ...
+        'v4_added_metric_heatmaps', false, ...
         'v5_scatter_stacking_law', true, ...
         'v5_fit_parameter_sweeps', true, ...
-        'v6_defect_occurrence', true, ...
-        'v7_nor_loo_density', true, ...
-        'v8_optional_views', true);
+        'v6_defect_occurrence', false, ...
+        'v8_optional_views', false, ...
+        'v7_nor_loo_density', false);
 
     % Axis-3 interpretation for loaded datasets:
     % 1 -> N_obs axis, 2 -> side-length-ratio axis.
@@ -886,12 +1111,12 @@ function cfg = default_config()
 
     % If true, allow shift-search alignment when estimating sigma vs GT.
     % If false, sigma is computed without alignment.
-    cfg.enable_alignment = false;
+    cfg.enable_alignment = true;
 
     % Alignment search half-window [dy dx] in pixels.
     % Actual shifts tested are dy in [-kplus(1), kplus(1)],
     % dx in [-kplus(2), kplus(2)] when enable_alignment=true.
-    cfg.kplus = [1, 1];
+    cfg.kplus = [2, 2];
 
     % Evaluate denoising sigma every Nth energy slice (speed/accuracy tradeoff).
     % 1 means use all slices; 2 means every other slice, etc.
@@ -899,13 +1124,17 @@ function cfg = default_config()
 
     % If true, B5 stores mean residual kernel maps per slot/kernel in metrics.
     % This can increase memory use for large parameter sweeps.
-    cfg.store_residual_kernels = false;
+    cfg.store_residual_kernels = true;
 
     % Noise estimator used in sigma computation: 'mad' (robust) or 'std'.
     cfg.sigma_method = 'mad';
 
     % If true, detailed-point explorer also prints sigma denoising diagnostics.
     cfg.enable_sigma_analysis = true;
+
+    % Fixed SNR / metric shown in the unified inspector (V3).
+    cfg.inspector_fixed_snr = 5;
+    cfg.inspector_metric_type = 'combined';
 
     % Target SNR values for scatter diagnostics; nearest available SNR bins are used.
     cfg.scatter_snr_targets = [3, 5, 7];
@@ -916,23 +1145,21 @@ function cfg = default_config()
     % Shared V5 plot formatting handles (font + marker style).
     cfg.plot_format = struct( ...
         'font_name', 'Arial', ...
-        'font_size_axes', 13, ...
-        'font_size_title', 13, ...
+        'font_size_axes', 18, ...
+        'font_size_title', 15, ...
         'font_size_sgtitle', 16, ...
         'marker_size_mean', 22, ...
         'marker_size_kernel', 20, ...
-        'legend_location', 'best');
+        'legend_location', 'northwest');
 
-    % SNR filter used by NOR/LOO-vs-density plotting block.
+    % SNR / side-ratio filters used by the V7 NOR/LOO-vs-density exploration plot.
     cfg.selected_snr = 5;
-
-    % Side-length-ratio filter used by NOR/LOO-vs-density plotting block.
     cfg.selected_side_length_ratio = 0.175;
 
     % If true, build and visualize combined plots across three loaded runs.
     cfg.enable_combined_runs_view = true;
 
     % If true, also execute the legacy metrics visualization section.
-    cfg.enable_legacy_view = true;
+    cfg.enable_legacy_view = false;
 end
 

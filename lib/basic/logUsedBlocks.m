@@ -23,10 +23,16 @@ arguments
     initialize  {mustBeNumericOrLogical} = 0
 end
 
+% Build canonical log file path (cross-platform).
+log_file_path = fullfile(char(LOGpath), [char(LOGfile) '_LOGfile.txt']);
+
 % open or create file and write header in the initialization run
 % clears the log file!
 if initialize == 1
-    fid = fopen(strcat(LOGpath, '/',LOGfile,'_LOGfile.txt'),'w+');
+    fid = fopen(log_file_path,'w+');
+    if fid == -1
+        error('logUsedBlocks:FileOpenFailed', 'Could not create log file: %s', log_file_path);
+    end
     %header = 'DATE                  BLOCK   COMMENT';
     fprintf(fid,'%21s %7s %s\r\n','DATE and TIME        ','BLOCK  ','COMMENT');
     initialize = 0;
@@ -35,7 +41,10 @@ end
 
 % append timestamp and executed block to the log file
 if initialize == 0
-    fid = fopen(strcat(LOGpath, '/',LOGfile,'_LOGfile.txt'),'a+');
+    fid = fopen(log_file_path,'a+');
+    if fid == -1
+        error('logUsedBlocks:FileOpenFailed', 'Could not append log file: %s', log_file_path);
+    end
     t = datetime;
     dtstr = string(t);
     M=convertStringsToChars(strcat(dtstr, "  ",block, "   ",LOGcomment));

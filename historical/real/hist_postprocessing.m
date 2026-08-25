@@ -1,3 +1,4 @@
+% Retired previous postprocessing script (hist_).
 %% Post processing:
 % Aout_All is a n by 1 cell, each cell is a 3D matrix. Now we start post processing output kernels.
 % first we mask out the kernel center with truncated gaussian window, following similar procedure as in Block 2.5.

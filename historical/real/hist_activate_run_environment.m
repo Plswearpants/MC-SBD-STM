@@ -1,5 +1,7 @@
-function env = activate_run_environment(run_dir, varargin)
-%ACTIVATE_RUN_ENVIRONMENT Activate an existing MT-SBD runtime environment.
+function env = hist_activate_run_environment(run_dir, varargin)
+%HIST_ACTIVATE_RUN_ENVIRONMENT Retired run-folder helper (hist_).
+%   Official trial record is the project folder + *_LOGfile.txt from the
+%   RUN_ trunks. Do not use this for new work.
 %   ENV = ACTIVATE_RUN_ENVIRONMENT(RUN_DIR)
 %   ENV = ACTIVATE_RUN_ENVIRONMENT(..., 'SharedInputDir', DIR)
 %
@@ -59,7 +61,7 @@ function env = activate_run_environment(run_dir, varargin)
     fprintf('run_dir          : %s\n', env.run_dir);
     fprintf('shared_input_dir : %s\n', env.shared_input_dir);
     fprintf('output_dir       : %s\n', env.output_dir);
-    fprintf('Open scripts/real/MTSBD_block_realdata1.m and run sections manually.\n');
+    fprintf('Open scripts/real/real_block.m (split path) or historical/real/hist_run_real_data.m (combined).\n');
 end
 
 function tf = is_absolute_path(path_str)

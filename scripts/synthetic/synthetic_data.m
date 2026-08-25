@@ -121,6 +121,7 @@ log.file = dataset_log_name;
 LOGcomment = sprintf("Dataset generation session: %s", meta.project_name);
 LOGcomment = logUsedBlocks(log.path, log.file, "GD01A", LOGcomment, 1);
 fprintf('Dataset log file: %s_LOGfile.txt\n\n', log.file);
+registerTunableRun(log);
 
 % Generate synthetic data (with internal logging)
 fprintf('Generating synthetic test data...\n');

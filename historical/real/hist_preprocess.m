@@ -1,3 +1,4 @@
+% Retired previous preprocess script (hist_). Official path: scripts/real/real_preprocess.m
 %% Block 1: Load the .3ds data
 
 % INPUTS

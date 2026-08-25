@@ -1,12 +1,11 @@
 function config_path = resolve_tunable_config(config_filename)
-%RESOLVE_TUNABLE_CONFIG Resolve tunable config path for current run env.
+%RESOLVE_TUNABLE_CONFIG Resolve tunable config path for the current trial.
 %   Priority:
-%   1) run env from appdata/getenv:
-%        <run_env>/config/<config_filename>
-%        <run_env>/<config_filename>
-%   2) session runtime tunables:
+%   1) Suffixed trial copy when MT_SBD_TUNABLE_ID is set:
+%        <repo>/config/runtime_tunables/Xsolve_config_tunable_<id>.mat
+%   2) Unsuffixed session copy:
 %        <repo>/config/runtime_tunables/<config_filename>
-%   3) repository templates (immutable defaults):
+%   3) Repository templates (immutable defaults):
 %        <repo>/config/<config_filename>
 %        <repo>/config/Xsolve_config.mat or Asolve_config.mat (name remap)
 
@@ -14,28 +13,26 @@ function config_path = resolve_tunable_config(config_filename)
         error('config_filename is required.');
     end
 
-    candidates = {};
-
-    run_env = '';
-    if isappdata(0, 'MT_SBD_RUN_ENV')
-        run_env = getappdata(0, 'MT_SBD_RUN_ENV');
-    end
-    if isempty(run_env)
-        run_env = getenv('MT_SBD_RUN_ENV');
-    end
-    if ~isempty(run_env)
-        candidates{end+1} = fullfile(run_env, 'config', config_filename); %#ok<AGROW>
-        candidates{end+1} = fullfile(run_env, config_filename); %#ok<AGROW>
-    end
-
     repo_root = fileparts(fileparts(mfilename('fullpath')));
-    candidates{end+1} = fullfile(repo_root, 'config', 'runtime_tunables', config_filename);
-    candidates{end+1} = fullfile(repo_root, 'config', config_filename);
+    names = {config_filename};
+    suffixed = suffixTunableFilename(config_filename);
+    if ~strcmp(suffixed, config_filename)
+        names = [{suffixed}, names];
+    end
+
+    candidates = {};
+    for i = 1:numel(names)
+        nm = names{i};
+        candidates{end+1} = fullfile(repo_root, 'config', 'runtime_tunables', nm); %#ok<AGROW>
+        candidates{end+1} = fullfile(repo_root, 'config', nm); %#ok<AGROW>
+    end
 
     % Fall back to immutable templates when no tunable copy exists yet.
-    if strcmp(config_filename, 'Xsolve_config_tunable.mat')
+    if strcmp(config_filename, 'Xsolve_config_tunable.mat') || ...
+            startsWith(config_filename, 'Xsolve_config_tunable_')
         candidates{end+1} = fullfile(repo_root, 'config', 'Xsolve_config.mat');
-    elseif strcmp(config_filename, 'Asolve_config_tunable.mat')
+    elseif strcmp(config_filename, 'Asolve_config_tunable.mat') || ...
+            startsWith(config_filename, 'Asolve_config_tunable_')
         candidates{end+1} = fullfile(repo_root, 'config', 'Asolve_config.mat');
     end
 
@@ -46,5 +43,5 @@ function config_path = resolve_tunable_config(config_filename)
         end
     end
 
-    error('Unable to locate %s in run env, config/runtime_tunables, or config/.', config_filename);
+    error('Unable to locate %s in config/runtime_tunables or config/.', config_filename);
 end

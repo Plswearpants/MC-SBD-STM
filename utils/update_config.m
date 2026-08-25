@@ -4,10 +4,9 @@ function update_config(config_file, param_path, new_value, new_file_name)
 %   update_config(CONFIG_FILE, PARAM_PATH, NEW_VALUE, NEW_FILE_NAME)
 %
 %   When NEW_FILE_NAME is provided it must resolve to an absolute path.
-%   Bare/relative names are rewritten under:
-%     1) <MT_SBD_RUN_ENV>/config/   if a run environment is active
-%     2) <repo>/config/runtime_tunables/   otherwise
-%   Immutable templates under config/ must not be overwritten via relative names.
+%   Bare/relative names are rewritten under <repo>/config/runtime_tunables/.
+%   If MT_SBD_TUNABLE_ID is set (registerTunableRun), generic
+%   Xsolve/Asolve_config_tunable.mat names gain a _<run_id> suffix.
 
     if nargin < 3
         error('update_config requires config_file, param_path, and new_value.');
@@ -30,6 +29,7 @@ function update_config(config_file, param_path, new_value, new_file_name)
         save_file = config_file;
     else
         save_file = resolve_tunable_output_path(new_file_name);
+        save_file = suffixTunableFilename(save_file);
     end
 
     save_dir = fileparts(save_file);
@@ -49,20 +49,6 @@ function save_file = resolve_tunable_output_path(new_file_name)
 
     [~, name, ext] = fileparts(new_file_name);
     bare = [name ext];
-
-    run_env = '';
-    if isappdata(0, 'MT_SBD_RUN_ENV')
-        run_env = getappdata(0, 'MT_SBD_RUN_ENV');
-    end
-    if isempty(run_env)
-        run_env = getenv('MT_SBD_RUN_ENV');
-    end
-
-    if ~isempty(run_env)
-        save_file = fullfile(run_env, 'config', bare);
-        return;
-    end
-
     repo_root = fileparts(fileparts(mfilename('fullpath')));
     save_file = fullfile(repo_root, 'config', 'runtime_tunables', bare);
 end

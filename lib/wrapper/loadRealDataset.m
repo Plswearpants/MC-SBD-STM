@@ -4,14 +4,14 @@ function [log, data, params, meta, cfg] = loadRealDataset(log, data, params, met
 %   [log, data, params, meta, cfg] = loadRealDataset(log, data, params, meta, cfg)
 %
 %   This is a thin wrapper around the legacy Block 1 in
-%   scripts/MTSBD_block_realdata1.m. It:
+%   historical/real/hist_MTSBD_block_realdata1.m. It:
 %       - Ensures cfg.load.data_file and cfg.load.smoothing_sigma are set
 %       - Calls load3dsall to load the .3ds file
 %       - Builds basic energy axis and dimensions
 %       - Stores results under data.real and params.real
 %
 %   Project/checkpoint creation and logging are handled at the script level
-%   (see scripts/run_real_data.m and docs/script_standardization.md).
+%   (see historical/real/hist_run_real_data.m and docs/script_standardization.md).
 %
 %   Inputs:
 %       log, data, params, meta, cfg  - pipeline structs (may be empty)
@@ -93,6 +93,13 @@ function [log, data, params, meta, cfg] = loadRealDataset(log, data, params, met
         % be handled in the checkpoint/IO layer.
         meta.raw_path_project = cfg.load.data_file;
     end
+
+    meta.stage = "raw";
+
+    LOGcomment = sprintf(['loadRealDataset: file=%s, smoothing_sigma=%g, grid=%dx%d, ', ...
+        'slices=%d, energy=[%g %g]'], ...
+        cfg.load.data_file, cfg.load.smoothing_sigma, xsize, ysize, num_slices, estart, eend);
+    logBlockIfEnabled(log, "LR01A", LOGcomment);
 
 end
 

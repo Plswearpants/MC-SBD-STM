@@ -1,4 +1,4 @@
-%% 2D preprocessing pipeline (derived from scripts/preprocess.m)
+%% 2D preprocessing pipeline (derived from historical/real/hist_preprocess.m)
 %
 % Assumption:
 %   - `data_carried` already exists in the workspace as a 2D numeric matrix.

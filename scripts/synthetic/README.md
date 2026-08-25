@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the reorganized synthetic data script (`run_synthetic_data.m`) that follows the UBC LAIR standardization framework for reproducibility and comprehensive logging.
+This document describes the reorganized synthetic data script (`scripts/synthetic/synthetic_data.m`) that follows the UBC LAIR standardization framework for reproducibility and comprehensive logging.
 
 ## Script Structure
 

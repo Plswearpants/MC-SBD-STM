@@ -34,6 +34,7 @@ ALL_SLICE_RUN_DONE.txt
 session*.mat
 matlab_workspace.mat
 config/runtime_tunables/
+!config/runtime_tunables/README.md
 config/worker_configs/
 
 # Specific directories to ignore

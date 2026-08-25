@@ -11,13 +11,17 @@ function [meta] = createProjectStructure(varargin)
 %                             If not provided, opens UI dialog to select directory
 %       'timestamp'         - Timestamp string (default: auto-generated yyyymmdd_HHMMSS)
 %       'create_folders'    - Actually create folders on disk (default: true)
+%       'prefix'            - Project folder name prefix (default: 'synthetic').
+%                             Real-data trunks pass 'real' so runs land in
+%                             real_<timestamp> rather than synthetic_<timestamp>.
 %
 %   OUTPUTS:
 %       meta                - Metadata struct containing all path information:
 %           .project_root   - Root directory for all projects
-%           .project_name   - Project folder name (synthetic_<timestamp>)
+%           .project_name   - Project folder name (<prefix>_<timestamp>)
 %           .project_path   - Full path to project folder
 %           .timestamp      - Timestamp used for project naming
+%           .project_prefix - Prefix used for project naming
 %
 %   FOLDER STRUCTURE CREATED (Nested Structure):
 %       \MT-SBD-STM\projects\synthetic_<timestamp>\
@@ -78,12 +82,17 @@ function [meta] = createProjectStructure(varargin)
     addParameter(p, 'project_root', '', @ischar);
     addParameter(p, 'timestamp', '', @ischar);
     addParameter(p, 'create_folders', true, @islogical);
+    addParameter(p, 'prefix', 'synthetic', @(x) ischar(x) || isstring(x));
     parse(p, varargin{:});
     
     % Extract parameters
     project_root = p.Results.project_root;
     timestamp = p.Results.timestamp;
     create_folders = p.Results.create_folders;
+    prefix = char(p.Results.prefix);
+    if isempty(prefix)
+        prefix = 'synthetic';
+    end
     
     % Determine project root directory
     if isempty(project_root)
@@ -105,7 +114,7 @@ function [meta] = createProjectStructure(varargin)
     end
     
     % Create project folder name
-    project_name = sprintf('synthetic_%s', timestamp);
+    project_name = sprintf('%s_%s', prefix, timestamp);
     project_path = fullfile(project_root, project_name);
     
     % Create folders if requested
@@ -131,6 +140,7 @@ function [meta] = createProjectStructure(varargin)
     meta.project_name = project_name;
     meta.project_path = project_path;
     meta.timestamp = timestamp;
+    meta.project_prefix = prefix;
     
     fprintf('  Project structure initialized: %s\n', project_name);
 end

@@ -25,6 +25,8 @@ function cfg = init_config(cfg)
     % Leaf fields (schema only; initialize to [] if missing)
     cfg.load = ensureField(cfg.load, 'data_file', []);
     cfg.load = ensureField(cfg.load, 'smoothing_sigma', []);
+    cfg.load = ensureField(cfg.load, 'preprocessed_file', []);
+    cfg.load = ensureField(cfg.load, 'preprocessed_var', []);
 
     cfg.reference = ensureField(cfg.reference, 'default_ref_slice', []);
     cfg.reference = ensureField(cfg.reference, 'default_num_kernels', []);
@@ -63,7 +65,11 @@ function cfg = init_config(cfg)
 
     cfg.blockInit = ensureField(cfg.blockInit, 'use_matrix', []);
     cfg.blockInit = ensureField(cfg.blockInit, 'change_size', []);
+    cfg.blockInit = ensureField(cfg.blockInit, 'center_source', []);
+    cfg.blockInit = ensureField(cfg.blockInit, 'show_order_preview', []);
+    cfg.blockInit = ensureField(cfg.blockInit, 'reuse_noise_roi', []);
 
+    cfg.blockRun = ensureField(cfg.blockRun, 'use_trusted_slice_weights', []);
     cfg.blockRun = ensureField(cfg.blockRun, 'trusted_ratio_threshold_default', []);
     cfg.blockRun = ensureField(cfg.blockRun, 'use_default_manual_trusted_slices', []);
     cfg.blockRun = ensureField(cfg.blockRun, 'show_trusted_plot', []);
@@ -80,8 +86,15 @@ function cfg = init_config(cfg)
     cfg.blockRun = ensureField(cfg.blockRun, 'Xsolve', []);
     cfg.blockRun = ensureField(cfg.blockRun, 'use_Xregulated', []);
     cfg.blockRun = ensureField(cfg.blockRun, 'allow_custom_update_order', []);
+    cfg.blockRun = ensureField(cfg.blockRun, 'use_xinit_from_ref', []);
+    cfg.blockRun = ensureField(cfg.blockRun, 'notify_on_completion', []);
 
     cfg.io = ensureField(cfg.io, 'allslice_output_file', []);
+    cfg.io = ensureField(cfg.io, 'output_root', []);
+    cfg.io = ensureField(cfg.io, 'run_label', []);
+    cfg.io = ensureField(cfg.io, 'preprocess_output_file', []);
+    cfg.io = ensureField(cfg.io, 'prerun_output_file', []);
+    cfg.io = ensureField(cfg.io, 'blockrun_output_file', []);
 end
 
 function s = ensureStruct(s, fieldName)

@@ -2,7 +2,7 @@ clc;
 run_env = 'C:\Users\CAD\Documents\GitHub\MT-SBD-STM\runs\zrsite_run_0528_001';
 all_inputs_dir = 'C:\Users\CAD\Documents\GitHub\MT-SBD-STM\runtime\all_inputs';
 repo_root = 'C:\Users\CAD\Documents\GitHub\MT-SBD-STM';
-target_script = 'C:\Users\CAD\Documents\GitHub\MT-SBD-STM\scripts\real\MTSBD_block_realdata1.m';
+target_script = 'C:\Users\CAD\Documents\GitHub\MT-SBD-STM\historical\real\hist_MTSBD_block_realdata1.m';
 setappdata(0, 'MT_SBD_RUN_ENV', run_env);
 setenv('MT_SBD_RUN_ENV', run_env);
 setappdata(0, 'MT_SBD_ALL_INPUTS_DIR', all_inputs_dir);

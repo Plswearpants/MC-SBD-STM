@@ -1,3 +1,4 @@
+% Retired previous synthetic block script (hist_). Official path: scripts/synthetic/synthetic_data.m
 %% Block 1: Generate Test Data and Initialize Kernels
 % Generate test set
 SNR = 2;              % Signal-to-noise ratio
