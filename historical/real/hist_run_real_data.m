@@ -4,10 +4,13 @@
 %  Microscopy real-data loading, preprocessing, decomposition, and
 %  visualization.
 %
+%  Retired combined trunk (raw .3ds -> preprocess -> decompose -> viz).
+%  Official split path: scripts/real/real_preprocess.m then real_block.m.
+%  The hist_ prefix marks this as a previous script kept for recovery.
+%
 %  This script follows the UBC LAIR standardized block structure for
-%  reproducibility and comprehensive logging. It is the standardized
-%  entry point for real-data analysis (the legacy script
-%  `MTSBD_block_realdata1.m` remains available for reference).
+%  reproducibility and comprehensive logging. The retired inline block
+%  script `hist_MTSBD_block_realdata1.m` remains available for reference.
 %
 %  WORKFLOW OVERVIEW (CHECKPOINT STAGES):
 %  ======================================
