@@ -10,6 +10,8 @@ function [LOGcomment] = logUsedBlocks(LOGpath, LOGfile, block, LOGcomment ,initi
 %               the functions executed within the corresponding block) 
 %   initialize  1 = yes, 0 = no 
 %
+%   Empty LOGpath or LOGfile: no file is written (no-log callers).
+%
 %   * note that the strings LOGfile name and LOGpath should correspond to
 %   the char [file path] returned by uigetfile() for a data file. 
 
@@ -21,6 +23,12 @@ arguments
     block       {mustBeText}    %string
     LOGcomment  {mustBeText}    %string
     initialize  {mustBeNumericOrLogical} = 0
+end
+
+% Empty path/file: caller is a no-log script (e.g. the simple example).
+if strlength(strtrim(string(LOGpath))) == 0 || strlength(strtrim(string(LOGfile))) == 0
+    LOGcomment = "";
+    return;
 end
 
 % Build canonical log file path (cross-platform).

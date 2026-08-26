@@ -1,4 +1,4 @@
-# MT-SBD-STM Repository Structure
+# MC-SBD-STM Repository Structure
 
 Living map of functional streams, canonical entrypoints, and conventions.
 Update this file whenever the on-disk layout changes (keep in sync with
@@ -9,7 +9,7 @@ Update this file whenever the on-disk layout changes (keep in sync with
 
 | Stream | Purpose | Artifact home |
 | --- | --- | --- |
-| **Real data** | Preprocess STM measurements → MT-SBD → paper/result viz | `projects/real_<ts>/`, `examples/data/` |
+| **Real data** | Preprocess STM measurements → MC-SBD → paper/result viz | `projects/real_<ts>/`, `examples/data/` |
 | **Synthetic single-dataset** | One config → full MCSBD trunk + project logging | `projects/synthetic_<ts>/` |
 | **Synthetic parameter-space** | Dataset grid → parallel SBD → phase-space heatmaps | `artifacts/synthetic/` (canonical); legacy `examples/results/` |
 | **Shared core** | Solvers, domain lib, config, utils | N/A (source only) |
@@ -39,7 +39,7 @@ Update this file whenever the on-disk layout changes (keep in sync with
 | Official preprocess | `scripts/real/real_preprocess.m` | Official (split path, first half) |
 | Official block run | `scripts/real/real_block.m` | Official (split path, second half) |
 | Combined raw-to-result | `historical/real/hist_run_real_data.m` | Retired (`hist_`); keep as the second way |
-| Previous block script | `historical/real/hist_MTSBD_block_realdata1.m` | Retired; R-series experiment blocks live here |
+| Previous block script | `historical/real/hist_MCSBD_block_realdata1.m` | Retired; R-series experiment blocks live here |
 | Previous preprocess | `historical/real/hist_preprocess.m` | Retired |
 | Previous postprocess | `historical/real/hist_postprocessing.m` | Retired |
 | 2D preprocess helper | `scripts/real/preprocess_2d.m` | Live specialized helper (not a trunk) |
@@ -47,7 +47,8 @@ Update this file whenever the on-disk layout changes (keep in sync with
 ### Synthetic single-dataset
 
 1. `scripts/synthetic/synthetic_data.m` — generate one dataset, decompose, visualize, save under `projects/`
-2. Previous inline trunk: `historical/synthetic/hist_MTSBD_block_synthetic.m` (retired)
+2. Minimal 2D demo: `examples/simple_MCSBD_example.m` — load frozen `examples/example_data/simple_mcsbd_2d/` (or generate + WS01A freeze) → `MCSBD_synthetic` with the DS01A parameter set. No session log / project folder.
+3. Previous inline trunk: `historical/synthetic/hist_MCSBD_block_synthetic.m` (retired)
 
 ### Synthetic parameter-space (dataset grid)
 
@@ -87,12 +88,11 @@ The trial log records a `CFG01` line with that directory and those names, so the
 | `scripts/real/viz/directional_mask_waterfall.m` | Directional QPI mask diagnostic |
 | `scripts/real/viz/break_degeneracy_illustration_plot.m` | Degeneracy illustration |
 | `utils/show_results.m` | Compact Y / reconstruction / A / X grid |
-| `solvers/plot_activations.m` | Thresholded activation scatter |
 
 ## Directory layout (target)
 
 ```
-MT-SBD-STM/
+MC-SBD-STM/
   docs/REPO_STRUCTURE.md          # this file
   docs/REPO_STRUCTURE_DAG.md      # mermaid DAG
   history/repo_reorg.md           # migration table
@@ -100,7 +100,7 @@ MT-SBD-STM/
     real/                         # real_preprocess, real_block, preprocess_2d, viz/
     synthetic/                    # synthetic_data
     phase_space/                  # hierarchical gen, parallel run, metrics viz
-  solvers/                        # MT_SBD, MTSBD_*, SBD_test_* APIs
+  solvers/                        # live APIs: MC_SBD, MCSBD_*_modified/synthetic, SBD, SBD_test_multi_parallel
   lib/                            # domain library (formerly Dong_func)
     wrapper/
     phase_space/
@@ -110,7 +110,8 @@ MT-SBD-STM/
   projects/                       # real_<ts>/ and synthetic_<ts>/ project trees
   artifacts/synthetic/            # batch datasets + parallel results
   historical/                     # hist_ previous scripts + older retirements
-  examples/                       # thin demos + sample data
+    solvers/                      # hist_ experimental / retired solvers
+  examples/                       # thin demos + sample data (simple_SBD_example, simple_MCSBD_example)
 ```
 
 ## Config policy
@@ -122,10 +123,12 @@ MT-SBD-STM/
 
 ## Path bootstrap
 
-`init_sbd` adds: repo root, `core/`, `utils/`, `config/`, `lib/` (and subdirs), `solvers/`, `vendor/`, `colormap/`, and `scripts/{real,synthetic,phase_space}/`. Call it from the repo (or any subfolder). `bootstrap_init_sbd` is an Editor-temp-safe wrapper that locates `init_sbd.m` and runs it; trunks currently inline the same walk.
+`init_sbd` adds: repo root, `core/`, `utils/`, `config/`, `lib/` (and subdirs), `solvers/`, `historical/solvers/`, `vendor/`, `colormap/`, and `scripts/{real,synthetic,phase_space}/`. Call it from the repo (or any subfolder). `bootstrap_init_sbd` is an Editor-temp-safe wrapper that locates `init_sbd.m` and runs it; trunks currently inline the same walk.
 
 ## Related docs
 
 - [`script_standardization.md`](script_standardization.md) — block IDs, checkpoints, logging
 - [`FOLDER_STRUCTURE_ANALYSIS.md`](FOLDER_STRUCTURE_ANALYSIS.md) — nested project layout proposal
 - [`../history/`](../history/) — topic-specific update/deprecation tables
+- [`../history/simple_mcsbd_example_updates.md`](../history/simple_mcsbd_example_updates.md) — freeze/load path for the 2D MCSBD example
+- [`../history/solvers_retirement.md`](../history/solvers_retirement.md) — dead solver deletes and `hist_` experimental solvers

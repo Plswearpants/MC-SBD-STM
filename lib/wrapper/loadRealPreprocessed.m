@@ -6,7 +6,7 @@ function [log, data, params, meta, cfg] = loadRealPreprocessed(log, data, params
 %   Entry point for workflows that start *after* preprocessing, i.e. from a
 %   cleaned Y stored in a .mat file, rather than from a raw .3ds file (see
 %   loadRealDataset for the raw path). Encapsulates Block 01 of the legacy
-%   historical/real/hist_MTSBD_block_realdata1.m:
+%   historical/real/hist_MCSBD_block_realdata1.m:
 %       - resolves an optional extra artifact root (pwd unless pinned)
 %       - picks a .mat file (uigetfile) and a variable entry (listdlg)
 %       - validates the entry is a numeric image stack
@@ -20,7 +20,7 @@ function [log, data, params, meta, cfg] = loadRealPreprocessed(log, data, params
 %
 %   Trial logs live in the project folder from PJ01R, not in this output_root.
 %   Output-root resolution: cfg.io.output_root, else pwd (a leftover
-%   MT_SBD_RUN_ENV key is still honored if set).
+%   MC_SBD_RUN_ENV key is still honored if set).
 
     arguments
         log  struct
@@ -37,9 +37,9 @@ function [log, data, params, meta, cfg] = loadRealPreprocessed(log, data, params
     % Resolve extra artifact root (pwd unless pinned). Logs stay on log.path.
     % ---------------------------------------------------------------------
     if ~isfield(cfg.io, 'output_root') || isempty(cfg.io.output_root)
-        run_env_dir = getenv('MT_SBD_RUN_ENV');
-        if isempty(run_env_dir) && isappdata(0, 'MT_SBD_RUN_ENV')
-            run_env_dir = getappdata(0, 'MT_SBD_RUN_ENV');
+        run_env_dir = getenv('MC_SBD_RUN_ENV');
+        if isempty(run_env_dir) && isappdata(0, 'MC_SBD_RUN_ENV')
+            run_env_dir = getappdata(0, 'MC_SBD_RUN_ENV');
         end
 
         if isempty(run_env_dir)
@@ -58,9 +58,9 @@ function [log, data, params, meta, cfg] = loadRealPreprocessed(log, data, params
     % Select the .mat file holding Y
     % ---------------------------------------------------------------------
     if ~isfield(cfg.load, 'preprocessed_file') || isempty(cfg.load.preprocessed_file)
-        all_inputs_dir = getenv('MT_SBD_ALL_INPUTS_DIR');
-        if isempty(all_inputs_dir) && isappdata(0, 'MT_SBD_ALL_INPUTS_DIR')
-            all_inputs_dir = getappdata(0, 'MT_SBD_ALL_INPUTS_DIR');
+        all_inputs_dir = getenv('MC_SBD_ALL_INPUTS_DIR');
+        if isempty(all_inputs_dir) && isappdata(0, 'MC_SBD_ALL_INPUTS_DIR')
+            all_inputs_dir = getappdata(0, 'MC_SBD_ALL_INPUTS_DIR');
         end
         if isempty(all_inputs_dir) || ~exist(all_inputs_dir, 'dir')
             all_inputs_dir = pwd;

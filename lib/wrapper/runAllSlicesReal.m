@@ -1,15 +1,15 @@
 function [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, meta, cfg)
-%RUNALLSLICESREAL Run MT-SBD on all slices (block run).
+%RUNALLSLICESREAL Run MC-SBD on all slices (block run).
 %
 %   [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, meta, cfg)
 %
 %   This wrapper encapsulates the core "block run" logic from
-%   historical/real/hist_MTSBD_block_realdata1.m:
+%   historical/real/hist_MCSBD_block_realdata1.m:
 %       - selects the slice and kernel subset to run
 %       - builds A1_used / Y_used / X_ref_used for that subset
 %       - computes trusted-slice weights via build_auto_trusted_slice_weights
 %       - sets lambda1_base and weighted/unweighted variants
-%       - configures params for MTSBD_all_slice_modified or MTSBD_Xregulated_all_slices
+%       - configures params for MCSBD_all_slice_modified or hist_MCSBD_synthetic_Xregulated_all_slices
 %       - runs the chosen algorithm
 %       - computes observation_fidelity
 %       - stores results under data.real.blockRun
@@ -206,7 +206,7 @@ function [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, me
     end
 
     if ~use_trusted_weights
-        % Unweighted: allow MTSBD_all_slice_modified to default slice_weights = ones
+        % Unweighted: allow MCSBD_all_slice_modified to default slice_weights = ones
         params.slice_weights = [];
         params.slice_weight_details = struct();
         params.slice_weight_details.trusted_counts = num_slices_run * ones(1, num_kernels);
@@ -280,7 +280,7 @@ function [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, me
 
     use_custom_order = false;
     if cfg.blockRun.allow_custom_update_order
-        use_custom_order = input('Use custom kernel update order for MTSBD_all_slice_modified? (0/1): ');
+        use_custom_order = input('Use custom kernel update order for MCSBD_all_slice_modified? (0/1): ');
     end
     if ~isempty(use_custom_order) && use_custom_order
         custom_order = input(sprintf('Enter kernel update permutation of 1:%d (e.g. [2 1 3 ...]): ', num_kernels));
@@ -322,12 +322,12 @@ function [log, data, params, meta, cfg] = runAllSlicesReal(log, data, params, me
     % ---------------------------------------------------------------------
     if params.use_Xregulated
         [REG_Aout_ALL, REG_Xout_ALL, REG_bout_ALL, REG_extras_ALL] = ...
-            MTSBD_Xregulated_all_slices(Y_used, kernel_sizes_used, params, dispfun, ...
+            hist_MCSBD_synthetic_Xregulated_all_slices(Y_used, kernel_sizes_used, params, dispfun, ...
             A1_used, miniloop_iteration, outerloop_maxIT); %#ok<NASGU,INUSD>
         error('X-regulated variant not yet wired into data.real storage. Use non-regulated path for now.');
     else
         [Aout_ALL, Xout_ALL, bout_ALL, ALL_extras] = ...
-            MTSBD_all_slice_modified(Y_used, kernel_sizes_used, params, dispfun, ...
+            MCSBD_all_slice_modified(Y_used, kernel_sizes_used, params, dispfun, ...
             A1_used, miniloop_iteration, outerloop_maxIT);
     end
 

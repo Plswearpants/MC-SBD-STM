@@ -1,4 +1,4 @@
-function [ A_phase_I, Aout, Xout, bout, extras ] = SBD_test( Y, k, params, dispfun, kernel_initialguess )
+function [ A_phase_I, Aout, Xout, bout, extras ] = hist_SBD_test( Y, k, params, dispfun, kernel_initialguess )
 %SBD Summary of this function goes here
 %
 %   PARAMS STRUCT:

@@ -1,6 +1,8 @@
-%% SBD with Proximity Regularization - Script Version
+%% SBD with Proximity Regularization - Script Version (historical)
 % This script implements blind deconvolution with proximity regularization
-% Each block can be run independently for testing and debugging
+% Each block can be run independently for testing and debugging.
+% The SBD_test_multi_demixing solver it called was removed as a broken
+% solvers/ leftover (filename did not match the function name).
 
 %% Block 1: Generate Test Data and Initialize Kernels
 % Generate test set

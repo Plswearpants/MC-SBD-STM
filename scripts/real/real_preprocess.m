@@ -1,4 +1,4 @@
-%  TRUNK SCRIPT: Real Data MT-SBD-STM Preprocessing
+%  TRUNK SCRIPT: Real Data MC-SBD-STM Preprocessing
 %  ========================================================================
 %  Loads a raw Nanonis .3ds dataset and produces the cleaned volume Y that
 %  the decomposition trunk consumes.
@@ -72,7 +72,7 @@ for i = 1:numel(seeds)
     if ~isempty(repo_root); break; end
 end
 if isempty(repo_root)
-    error(['Could not locate init_sbd.m. cd to the MT-SBD-STM repo ', ...
+    error(['Could not locate init_sbd.m. cd to the MC-SBD-STM repo ', ...
         '(or a subfolder), save this script to disk if unsaved, then re-run. ', ...
         'Tried: %s'], strjoin(tried, ' | '));
 end
@@ -535,7 +535,7 @@ end
 LOGcomment = logUsedBlocks(log.path, log.file, "DONE ", "Real preprocessing script finished", 0);
 
 fprintf('========================================\n');
-fprintf('Real-data MT-SBD-STM preprocessing finished.\n');
+fprintf('Real-data MC-SBD-STM preprocessing finished.\n');
 fprintf('Project: %s\n', meta.project_path);
 fprintf('Log file: %s_LOGfile.txt\n', log.file);
 fprintf('\nNext step: run scripts/real/run_real_block.m and set\n');

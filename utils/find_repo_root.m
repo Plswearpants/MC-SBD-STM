@@ -1,5 +1,5 @@
 function repo_root = find_repo_root(varargin)
-%FIND_REPO_ROOT Locate MT-SBD-STM repo root (directory containing init_sbd.m).
+%FIND_REPO_ROOT Locate MC-SBD-STM repo root (directory containing init_sbd.m).
 %   REPO_ROOT = FIND_REPO_ROOT()
 %   REPO_ROOT = FIND_REPO_ROOT(START_DIR)
 %   REPO_ROOT = FIND_REPO_ROOT(START_DIR1, START_DIR2, ...)
@@ -45,7 +45,7 @@ function repo_root = find_repo_root(varargin)
         end
     end
 
-    error(['Could not locate init_sbd.m. cd to the MT-SBD-STM repo (or a ', ...
+    error(['Could not locate init_sbd.m. cd to the MC-SBD-STM repo (or a ', ...
         'subfolder), save the script to disk if it is unsaved, then re-run. ', ...
         'Seeds tried: %s'], strjoin(tried, ' | '));
 end

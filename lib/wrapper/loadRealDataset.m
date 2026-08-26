@@ -4,7 +4,7 @@ function [log, data, params, meta, cfg] = loadRealDataset(log, data, params, met
 %   [log, data, params, meta, cfg] = loadRealDataset(log, data, params, meta, cfg)
 %
 %   This is a thin wrapper around the legacy Block 1 in
-%   historical/real/hist_MTSBD_block_realdata1.m. It:
+%   historical/real/hist_MCSBD_block_realdata1.m. It:
 %       - Ensures cfg.load.data_file and cfg.load.smoothing_sigma are set
 %       - Calls load3dsall to load the .3ds file
 %       - Builds basic energy axis and dimensions

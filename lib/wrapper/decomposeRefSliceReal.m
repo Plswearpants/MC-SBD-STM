@@ -5,12 +5,12 @@ function [log, data, params, meta, cfg] = decomposeRefSliceReal(log, data, param
 %
 %   This wrapper encapsulates the "Pick reference slice" + "Block 4: Find
 %   Optimal Activation for Reference Slice" logic from
-%   historical/real/hist_MTSBD_block_realdata1.m. It:
+%   historical/real/hist_MCSBD_block_realdata1.m. It:
 %       - lets the user choose a reference slice and number of kernels
 %       - initializes kernels on the reference slice (initialize_kernels)
 %       - enforces kernel polarity
 %       - estimates noise
-%       - runs MT_SBD on the reference slice
+%       - runs MC_SBD on the reference slice
 %       - stores results under data.real and params.refSlice
 %
 %   Kernel centers chosen during initialization are captured and stored as
@@ -168,7 +168,7 @@ function [log, data, params, meta, cfg] = decomposeRefSliceReal(log, data, param
     end
 
     % ---------------------------------------------------------------------
-    % Noise estimation and MT_SBD on reference slice
+    % Noise estimation and MC_SBD on reference slice
     % ---------------------------------------------------------------------
     eta_data = estimate_noise3D(Y_ref, 'std', noise_roi);
     params.refSlice.noise_roi = noise_roi;
@@ -203,7 +203,7 @@ function [log, data, params, meta, cfg] = decomposeRefSliceReal(log, data, param
     params_ref.Xsolve   = cfg.sliceRun.Xsolve;
     params_ref.noise_var = eta_data;
 
-    [A_ref, X_ref, b_ref, extras_ref] = MT_SBD( ...
+    [A_ref, X_ref, b_ref, extras_ref] = MC_SBD( ...
         Y_ref, kernel_sizes, params_ref, dispfun, A1_ref, ...
         miniloop_iteration, outerloop_maxIT);
 

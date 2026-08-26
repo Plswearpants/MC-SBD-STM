@@ -89,7 +89,7 @@ for n = 1:num_kernels
 end
 
 % Choose which demixing method to use
-params.use_Xregulated = false;  % Set to true to use MTSBD_Xregulated, false for SBD_test_multi_demixing
+params.use_Xregulated = false;  % true: hist_MCSBD_synthetic_Xregulated; false: MCSBD_synthetic
 
 % SBD settings
 initial_iteration = 1;
@@ -112,7 +112,7 @@ params.gamma = 5e-2;  % Cross-correlation regularization parameter
 % Run SBD on reference slice
 fprintf('Finding optimal activation for reference slice %d...\n', params.ref_slice);
 if params.use_Xregulated
-    [REG_A_ref, REG_X_ref, REG_bout, REG_extras] = MTSBD_synthetic_Xregulated(...
+    [REG_A_ref, REG_X_ref, REG_bout, REG_extras] = hist_MCSBD_synthetic_Xregulated(...
         Y_ref, kernel_sizes_ref, params, dispfun, A1, initial_iteration, maxIT);
     % Store reference results
     REG_ref_results = struct();
@@ -120,7 +120,7 @@ if params.use_Xregulated
     REG_ref_results.X = REG_X_ref;
     REG_ref_results.extras = REG_extras;
 else
-    [A_ref, X_ref, bout, extras] = MTSBD_synthetic(...
+    [A_ref, X_ref, bout, extras] = MCSBD_synthetic(...
         Y_ref, kernel_sizes_ref, params, dispfun, A1, initial_iteration, maxIT);
     % Store reference results
     ref_results = struct();
@@ -374,7 +374,7 @@ for n = 1:num_kernels
     dispfun{n} = @(Y, A, X, kernel_sizes, kplus) showims(Y_used, A1_used{n}, X0_ref(:,:,n), A, X, kernel_sizes, kplus, 1);
 end
 
-% Update params for MTSBD
+% Update params for MCSBD
 params.X0 = X0;
 params.A0 = A0_used;
 for k = 1:num_kernels
@@ -384,10 +384,10 @@ for k = 1:num_kernels
 end
 
 if params.use_Xregulated
-    [REG_Aout_ALL, REG_Xout_ALL, REG_bout_ALL, REG_extras_ALL] = MTSBD_synthetic_Xregulated_all_slices(...
+    [REG_Aout_ALL, REG_Xout_ALL, REG_bout_ALL, REG_extras_ALL] = hist_MCSBD_synthetic_Xregulated_all_slices(...
         Y_used, kernel_sizes_used, params, dispfun, A1_used, initial_iteration, maxIT);
 else
-    [Aout_slice, Xout_slice, bout_slice, slice_extras] = MTSBD_synthetic_all_slice(...
+    [Aout_slice, Xout_slice, bout_slice, slice_extras] = MCSBD_synthetic_all_slice(...
         Y_used, kernel_sizes_used, params, dispfun, A1_used, initial_iteration, maxIT);
 end
 

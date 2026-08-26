@@ -19,6 +19,11 @@ function [log, data, params, meta] = loadWorkspace(varargin)
 %       'title'             - Title for file browser dialog (default: 'Select Workspace File')
 %       'verify_log'        - Verify log file naming convention (default: true)
 %       'track_selection'   - Store selected file in meta struct (default: false)
+%       'interactive'       - Prompt for overwrite / new log location (default: true)
+%       'new_log_path'      - Directory for the new session log (required if
+%                             interactive is false; ignored when interactive)
+%       'new_log_file'      - Session log stem without _LOGfile.txt (default:
+%                             <workspace>_loaded_<timestamp> when interactive is false)
 %
 %   OUTPUTS:
 %       log                 - Loaded log struct (REPLACES current_log)
@@ -31,6 +36,7 @@ function [log, data, params, meta] = loadWorkspace(varargin)
 %       - Simple file browser UI to select .mat file
 %       - Automatically finds and verifies corresponding log file
 %       - UI to select directory and name for NEW log file for current session
+%         (skip with 'interactive', false + 'new_log_path' / 'new_log_file')
 %       - Appends load entry to ORIGINAL log file (from loaded workspace)
 %       - Updates log struct to point to new log file (so subsequent blocks log to new file)
 %       - Memory overwrite protection (delete/rename/cancel existing workspace)
@@ -46,9 +52,16 @@ function [log, data, params, meta] = loadWorkspace(varargin)
 %       [log, data, params, meta] = loadWorkspace('current_log', log, ...
 %           'current_data', data, 'current_params', params, 'current_meta', meta);
 %
-%       % Load from specific file
+%       % Load from specific file (still prompts for a new session log)
 %       [log, data, params, meta] = loadWorkspace('workspace_file', ...
 %           'C:/results/experiment_001_20251030_143052.mat');
+%
+%       % Headless load for a scripted / example run
+%       [log, data, params, meta] = loadWorkspace( ...
+%           'workspace_file', bundled_mat, ...
+%           'interactive', false, ...
+%           'new_log_path', meta.project_path, ...
+%           'new_log_file', sprintf('loaded_%s', meta.timestamp));
 %
 %       % Load with file browser (default)
 %       [log, data, params, meta] = loadWorkspace('current_meta', meta, ...
@@ -62,10 +75,13 @@ function [log, data, params, meta] = loadWorkspace(varargin)
     addParameter(p, 'current_data', struct(), @isstruct);
     addParameter(p, 'current_params', struct(), @isstruct);
     addParameter(p, 'current_meta', struct(), @isstruct);
-    addParameter(p, 'workspace_file', '', @ischar);
+    addParameter(p, 'workspace_file', '', @(x) ischar(x) || isstring(x));
     addParameter(p, 'title', 'Select Workspace File', @ischar);
     addParameter(p, 'verify_log', true, @islogical);
     addParameter(p, 'track_selection', false, @islogical);
+    addParameter(p, 'interactive', true, @islogical);
+    addParameter(p, 'new_log_path', '', @(x) ischar(x) || isstring(x));
+    addParameter(p, 'new_log_file', '', @(x) ischar(x) || isstring(x));
     parse(p, varargin{:});
     
     % Extract parameters
@@ -73,10 +89,13 @@ function [log, data, params, meta] = loadWorkspace(varargin)
     current_data = p.Results.current_data;
     current_params = p.Results.current_params;
     current_meta = p.Results.current_meta;
-    workspace_file = p.Results.workspace_file;
+    workspace_file = char(p.Results.workspace_file);
     title_text = p.Results.title;
     verify_log = p.Results.verify_log;
     track_selection = p.Results.track_selection;
+    interactive = p.Results.interactive;
+    new_log_path = char(p.Results.new_log_path);
+    new_log_file_requested = char(p.Results.new_log_file);
     
     % Determine workspace file - use UI if not provided
     if isempty(workspace_file)
@@ -119,7 +138,9 @@ function [log, data, params, meta] = loadWorkspace(varargin)
                            isfield(current_log, 'file') && ...
                            ~isempty(current_log.file);
     
-    if has_current_workspace
+    if has_current_workspace && ~interactive
+        fprintf('Current workspace detected; interactive=false, overwriting in memory.\n\n');
+    elseif has_current_workspace
         fprintf('Current workspace detected in memory.\n')
         fprintf('Loading will overwrite current workspace in memory.\n');
         fprintf('WARNING: Current workspace is NOT automatically saved.\n');
@@ -237,29 +258,45 @@ function [log, data, params, meta] = loadWorkspace(varargin)
         end
     end
     
-    % UI to select directory for new log file
-    fprintf('\nSelect directory to save new log file...\n');
-    % Suggest default path (original log path, or workspace directory, or current directory)
-    default_path = original_log_path;
-    if ~exist(default_path, 'dir')
-        default_path = workspace_dir;
-    end
-    if ~exist(default_path, 'dir')
-        default_path = pwd;
-    end
-    
-    new_log_path = uigetdir(default_path, 'Select Directory for New Log File');
-    if isequal(new_log_path, 0)
-        error('No directory selected. Load cancelled.');
-    end
-    
-    % Prompt user for log file name (use workspace name as default)
     default_log_name = sprintf('%s_loaded_%s', workspace_name, datestr(now, 'yyyymmdd_HHMMSS'));
-    prompt = sprintf("Enter log file name (without _LOGfile.txt suffix) [%s]: ", default_log_name);
-    log_file_input = input(prompt, 's');
-    
-    if isempty(log_file_input)
-        log_file_input = default_log_name;
+    if interactive
+        % UI to select directory for new log file
+        fprintf('\nSelect directory to save new log file...\n');
+        % Suggest default path (original log path, or workspace directory, or current directory)
+        default_path = original_log_path;
+        if ~exist(default_path, 'dir')
+            default_path = workspace_dir;
+        end
+        if ~exist(default_path, 'dir')
+            default_path = pwd;
+        end
+        
+        new_log_path = uigetdir(default_path, 'Select Directory for New Log File');
+        if isequal(new_log_path, 0)
+            error('No directory selected. Load cancelled.');
+        end
+        
+        % Prompt user for log file name (use workspace name as default)
+        prompt = sprintf("Enter log file name (without _LOGfile.txt suffix) [%s]: ", default_log_name);
+        log_file_input = input(prompt, 's');
+        
+        if isempty(log_file_input)
+            log_file_input = default_log_name;
+        end
+    else
+        if isempty(new_log_path)
+            error(['new_log_path is required when interactive is false. ', ...
+                'Pass a project folder from createProjectStructure.']);
+        end
+        if ~exist(new_log_path, 'dir')
+            error('new_log_path does not exist: %s', new_log_path);
+        end
+        if isempty(new_log_file_requested)
+            log_file_input = default_log_name;
+        else
+            log_file_input = new_log_file_requested;
+        end
+        fprintf('\nHeadless load: new session log under %s\n', new_log_path);
     end
     
     % Ensure log file name is char (not string object)

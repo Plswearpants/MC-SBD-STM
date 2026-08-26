@@ -52,7 +52,7 @@ for i = 1:numel(seeds)
     if ~isempty(repo_root); break; end
 end
 if isempty(repo_root)
-    error(['Could not locate init_sbd.m. cd to the MT-SBD-STM repo ', ...
+    error(['Could not locate init_sbd.m. cd to the MC-SBD-STM repo ', ...
         '(or a subfolder), save this script if unsaved, then re-run.']);
 end
 addpath(repo_root);

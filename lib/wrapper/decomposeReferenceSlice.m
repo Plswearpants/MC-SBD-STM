@@ -1,5 +1,5 @@
 function [data, params] = decomposeReferenceSlice(log, data, params, varargin)
-%DECOMPOSEREFERENCESLICE Wrapper for MT-SBD on reference slice
+%DECOMPOSEREFERENCESLICE Wrapper for MC-SBD on reference slice
 %
 %   Multi-kernel Tensor Shifted Blind Deconvolution for reference slice
 %
@@ -32,7 +32,7 @@ function [data, params] = decomposeReferenceSlice(log, data, params, varargin)
 %       'use_xinit'         - Initial X guess, [] for none (default: [])
 %
 %       Display options:
-%       'show_progress'     - Show MT-SBD optimization progress (default: true)
+%       'show_progress'     - Show MC-SBD optimization progress (default: true)
 %
 %   OUTPUTS:
 %       data                - Updated data struct with new fields in mcsbd_slice:
@@ -40,30 +40,30 @@ function [data, params] = decomposeReferenceSlice(log, data, params, varargin)
 %                             data.mcsbd_slice.X - Activation maps
 %                             data.mcsbd_slice.b - Bias terms
 %                             data.mcsbd_slice.extras - Optimization info
-%                             data.mcsbd_slice.mtsbd_time - Execution time
+%                             data.mcsbd_slice.mcsbd_time - Execution time
 %                             data.mcsbd_slice.final_metrics - Activation metrics
 %                             data.mcsbd_slice.final_kernel_quality - Kernel quality
-%       params              - Updated parameter struct with MT-SBD settings
+%       params              - Updated parameter struct with MC-SBD settings
 %       results             - Results struct (for backward compatibility, contains same as data.mcsbd_slice)
 %
 %   DESCRIPTION:
-%       This wrapper encapsulates the MT-SBD (Multi-kernel Tensor Shifted
+%       This wrapper encapsulates the MC-SBD (Multi-kernel Tensor Shifted
 %       Blind Deconvolution) process for the reference slice. It handles:
 %       - Setting up display functions for monitoring
-%       - Packaging parameters for MTSBD_synthetic
-%       - Running the MT-SBD algorithm
+%       - Packaging parameters for MCSBD_synthetic
+%       - Running the MC-SBD algorithm
 %       - Computing and displaying quality metrics
 %       - Storing results in organized structures
 %
 %   EXAMPLE:
-%       % Standard MT-SBD
+%       % Standard MC-SBD
 %       [data, params, results] = decomposeReferenceSlice(log, data, params);
 %
 %       % With Phase II refinement
 %       [data, params, results] = decomposeReferenceSlice(log, data, params, ...
 %           'phase2_enable', true, 'maxIT', 20);
 %
-%   See also: MTSBD_synthetic, Asolve_Manopt_tunable, Xsolve_FISTA_tunable
+%   See also: MCSBD_synthetic, Asolve_Manopt_tunable, Xsolve_FISTA_tunable
 
     % Validate required inputs
     if ~isstruct(log) || ~isfield(log, 'path') || ~isfield(log, 'file')
@@ -159,9 +159,9 @@ function [data, params] = decomposeReferenceSlice(log, data, params, varargin)
     LOGcomment = logUsedBlocks(log.path, log.file, "DS01A", LOGcomment, 0);
     
     % Set up display functions for monitoring
-    fprintf('  Setting up MT-SBD...\n');
+    fprintf('  Setting up MC-SBD...\n');
     if show_progress
-        figure('Name', 'MT-SBD Progress');
+        figure('Name', 'MC-SBD Progress');
         dispfun = cell(1, params.num_kernels);
         for n = 1:params.num_kernels
             dispfun{n} = @(Y, A, X, kernel_sizes, kplus) ...
@@ -190,13 +190,13 @@ function [data, params] = decomposeReferenceSlice(log, data, params, varargin)
     sbd_params.A0 = data.A0_ref;
     sbd_params.xinit = use_xinit;
     
-    % Run MT-SBD on reference slice
+    % Run MC-SBD on reference slice
     tic;
-    [A_ref, X_ref, bout, extras] = MTSBD_synthetic(...
+    [A_ref, X_ref, bout, extras] = MCSBD_synthetic(...
         data.Y_ref, kernel_sizes_ref, sbd_params, dispfun, data.A_init, initial_iteration, maxIT);
-    mtsbd_time = toc;
+    mcsbd_time = toc;
     
-    fprintf('  MT-SBD completed in %.2f seconds.\n', mtsbd_time);
+    fprintf('  MC-SBD completed in %.2f seconds.\n', mcsbd_time);
     
     % Display final quality metrics
     fprintf('\n  Final Quality Metrics:\n');
@@ -208,20 +208,21 @@ function [data, params] = decomposeReferenceSlice(log, data, params, varargin)
     end
     fprintf('\n');
     
-    % LOG: MT-SBD results
+    % LOG: MC-SBD results
     LOGcomment = sprintf("Completed in %.2fs, Final metrics: Act=%s, Qual=%s", ...
-        mtsbd_time, mat2str(final_metrics, 3), mat2str(final_kernel_quality, 3));
+        mcsbd_time, mat2str(final_metrics, 3), mat2str(final_kernel_quality, 3));
     LOGcomment = logUsedBlocks(log.path, log.file, "  ^  ", LOGcomment, 0);
     
-    % Store results in data
+    % Store results in data (packed into mcsbd_slice by organizeData write)
+    data.A = A_ref;
     data.X = X_ref;
     data.b = bout;
     data.extras = extras;
-    data.mtsbd_time = mtsbd_time;
+    data.mcsbd_time = mcsbd_time;
     data.final_metrics = final_metrics;
     data.final_kernel_quality = final_kernel_quality;
     
-    % Update params struct with MT-SBD settings (flat structure)
+    % Update params struct with MC-SBD settings (flat structure)
     params.initial_iteration = initial_iteration;
     params.maxIT = maxIT;
     params.lambda1 = lambda1;
@@ -239,7 +240,7 @@ function [data, params] = decomposeReferenceSlice(log, data, params, varargin)
     data = organizeData(data, 'write');
     params = organizeParams(params, 'write');
     
-    fprintf('  Reference slice MT-SBD complete.\n');
+    fprintf('  Reference slice MC-SBD complete.\n');
 end
 
 

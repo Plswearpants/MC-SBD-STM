@@ -1,4 +1,4 @@
-%  TRUNK SCRIPT: Real Data MT-SBD-STM Block Run (preprocessed entry)
+%  TRUNK SCRIPT: Real Data MC-SBD-STM Block Run (preprocessed entry)
 %  ========================================================================
 %  Multi-kernel Tensor Shifted Blind Deconvolution for Scanning Tunneling
 %  Microscopy, entered from an ALREADY-PREPROCESSED volume Y stored in a
@@ -14,16 +14,16 @@
 %  pipeline in a single script, use `historical/real/hist_run_real_data.m`.
 %
 %  This script is the standardized replacement for the retired
-%  `historical/real/hist_MTSBD_block_realdata1.m`, which remains available
+%  `historical/real/hist_MCSBD_block_realdata1.m`, which remains available
 %  for reference (and still carries the retired R-series experiment blocks
 %  that are not reproduced here).
 %
 %  WORKFLOW OVERVIEW (CHECKPOINT STAGES):
 %  ======================================
 %  preprocess: load the preprocessed Y volume
-%  pre-run   : reference slice selection, kernel initialization, ref-slice MT-SBD,
+%  pre-run   : reference slice selection, kernel initialization, ref-slice MC-SBD,
 %              all-slice kernel proliferation
-%  run       : all-slice MT-SBD over a chosen slice/kernel subset
+%  run       : all-slice MC-SBD over a chosen slice/kernel subset
 %  post-run  : visualization (V-blocks) and derived analyses
 %
 %  Each major phase is handled by a wrapper function in `lib/wrapper` that
@@ -63,7 +63,7 @@ for i = 1:numel(seeds)
     if ~isempty(repo_root); break; end
 end
 if isempty(repo_root)
-    error(['Could not locate init_sbd.m. cd to the MT-SBD-STM repo ', ...
+    error(['Could not locate init_sbd.m. cd to the MC-SBD-STM repo ', ...
         '(or a subfolder), save this script to disk if unsaved, then re-run. ', ...
         'Tried: %s'], strjoin(tried, ' | '));
 end
@@ -152,11 +152,11 @@ rangetype = 'dynamic';   % display range mode for interactive previews
 %% RS01A: RefSlice-Real-01-A; Decompose reference slice
 %  =========================================================================
 %  Selects a reference slice, initializes kernels on it, enforces kernel
-%  polarity, estimates the noise level, and runs MT-SBD on that single slice.
+%  polarity, estimates the noise level, and runs MC-SBD on that single slice.
 %  The kernel centers chosen here are captured so IP01R can reuse the same
 %  K1...Kn ordering.
 %
-%  Dependencies: decomposeRefSliceReal.m, initialize_kernels.m, MT_SBD.m,
+%  Dependencies: decomposeRefSliceReal.m, initialize_kernels.m, MC_SBD.m,
 %                enforce_kernel_polarity.m, visualizeRealResult.m
 %
 % -------------------------------------------------------------------------
@@ -172,7 +172,7 @@ cfg.reference.square_size          = [80, 80];          % [height,width] when sa
 cfg.reference.default_ref_slice    = [];                % used when not interactive
 cfg.reference.default_num_kernels  = [];                % used when not interactive
 
-% MT-SBD settings for the reference slice
+% MC-SBD settings for the reference slice
 cfg.sliceRun.miniloop_iteration = 1;
 cfg.sliceRun.outerloop_maxIT    = 3;
 cfg.sliceRun.lambda1            = [0.02, 0.02, 0.02, 0.02, 0.02];  % Phase I regularization
@@ -233,12 +233,12 @@ end
 %% =========================================================================
 %% BR01A: Block-Run-Real-01-A; Decompose all slices (block run)
 %  =========================================================================
-%  Runs MT-SBD jointly over the selected slice and kernel subset. Kernel-
+%  Runs MC-SBD jointly over the selected slice and kernel subset. Kernel-
 %  indexed presets (lambda1_base, lambda2) are given over the FULL kernel set
 %  and sliced down to the requested subset, so changing kernels_to_run does
 %  not require re-editing the lambda vectors.
 %
-%  Dependencies: runAllSlicesReal.m, MTSBD_all_slice_modified.m,
+%  Dependencies: runAllSlicesReal.m, MCSBD_all_slice_modified.m,
 %                build_auto_trusted_slice_weights.m, notify_allslice_completion.m
 %
 % -------------------------------------------------------------------------
@@ -448,7 +448,7 @@ end
 LOGcomment = logUsedBlocks(log.path, log.file, "DONE ", "Real block-run script finished", 0);
 
 fprintf('========================================\n');
-fprintf('Real-data MT-SBD-STM block-run script finished.\n');
+fprintf('Real-data MC-SBD-STM block-run script finished.\n');
 fprintf('Project: %s\n', meta.project_path);
 fprintf('Log file: %s_LOGfile.txt\n', log.file);
 fprintf('========================================\n');

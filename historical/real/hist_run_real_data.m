@@ -1,4 +1,4 @@
-%  TRUNK SCRIPT: Real Data MT-SBD-STM Analysis
+%  TRUNK SCRIPT: Real Data MC-SBD-STM Analysis
 %  ========================================================================
 %  Multi-kernel Tensor Shifted Blind Deconvolution for Scanning Tunneling 
 %  Microscopy real-data loading, preprocessing, decomposition, and
@@ -10,14 +10,14 @@
 %
 %  This script follows the UBC LAIR standardized block structure for
 %  reproducibility and comprehensive logging. The retired inline block
-%  script `hist_MTSBD_block_realdata1.m` remains available for reference.
+%  script `hist_MCSBD_block_realdata1.m` remains available for reference.
 %
 %  WORKFLOW OVERVIEW (CHECKPOINT STAGES):
 %  ======================================
 %  raw       : load .3ds, copy raw into project, basic metadata
 %  preprocess: denoise, crop, slice selection, streak removal, masking, etc.
-%  pre-run   : reference slice selection, kernel initialization, ref-slice MT-SBD
-%  run       : all-slice MT-SBD (block run)
+%  pre-run   : reference slice selection, kernel initialization, ref-slice MC-SBD
+%  run       : all-slice MC-SBD (block run)
 %  post-run  : visualization and derived analyses
 %
 %  Each major phase is handled by a wrapper function in `lib/wrapper`
@@ -56,7 +56,7 @@ for i = 1:numel(seeds)
     if ~isempty(repo_root); break; end
 end
 if isempty(repo_root)
-    error(['Could not locate init_sbd.m. cd to the MT-SBD-STM repo ', ...
+    error(['Could not locate init_sbd.m. cd to the MC-SBD-STM repo ', ...
         '(or a subfolder), save this script to disk if unsaved, then re-run. ', ...
         'Tried: %s'], strjoin(tried, ' | '));
 end
@@ -101,10 +101,10 @@ cfg.load.smoothing_sigma = 10;               % smoothing for current data
 %  Applies preprocessing to the loaded real-data volume: background
 %  normalization, Bragg removal, cropping, slice selection, local streak
 %  removal (manual/auto), defect masking, streak healing, and final
-%  normalization Y used for MT-SBD.
+%  normalization Y used for MC-SBD.
 %
 %  Dependencies: normalizeBackgroundToZeroMean3D.m, removeBragg.m,
-%                maskSquare.m, gridCropMask.m, streak_correction.m,
+%                maskSquare.m, gridCropMask.m, hist_streak_correction.m,
 %                removeLocalStreaks.m, interpolateLocalStreaks.m,
 %                gaussianMaskDefects.m, thresholdDefects.m,
 %                RemoveStreaks.m, heal_streaks.m,
@@ -142,10 +142,10 @@ end
 %% RS01A: RefSlice-Real-01-A; Decompose reference slice
 %  =========================================================================
 %  Selects a reference slice, initializes kernels on that slice, and runs
-%  MT-SBD to obtain optimal activations and refined kernels. Writes a
+%  MC-SBD to obtain optimal activations and refined kernels. Writes a
 %  "pre-run" checkpoint capturing reference-slice results.
 %
-%  Dependencies: initialize_kernels.m, MT_SBD.m, visualizeRealResult.m,
+%  Dependencies: initialize_kernels.m, MC_SBD.m, visualizeRealResult.m,
 %                enforce_kernel_polarity.m,
 %                future wrapper decomposeRefSliceReal.m
 %
@@ -163,7 +163,7 @@ cfg.reference.square_size          = [80, 80];          % [height,width] for sam
 cfg.reference.default_ref_slice    = [];                % optional default reference slice (empty = prompt)
 cfg.reference.default_num_kernels  = [];                % optional default #kernels (empty = prompt)
 
-% MT-SBD settings for the reference slice (cfg.sliceRun)
+% MC-SBD settings for the reference slice (cfg.sliceRun)
 cfg.sliceRun.miniloop_iteration = 2;
 cfg.sliceRun.outerloop_maxIT    = 5;
 cfg.sliceRun.lambda1            = [0.025, 0.025, 0.02, 0.02, 0.02];  % Phase I regularization
@@ -233,11 +233,11 @@ end
 %% =========================================================================
 %% BR01A: Block-Run-Real-01-A; Decompose all slices (block run)
 %  =========================================================================
-%  Runs MT-SBD on all slices simultaneously (or via an X-regulated variant),
+%  Runs MC-SBD on all slices simultaneously (or via an X-regulated variant),
 %  using trusted-slice weights and reference-slice initializations. Writes a
 %  "run" checkpoint with kernels, activations, bias terms, and extras.
 %
-%  Dependencies: MTSBD_all_slice_modified.m, MTSBD_Xregulated_all_slices.m,
+%  Dependencies: MCSBD_all_slice_modified.m, MCSBD_Xregulated_all_slices.m,
 %                build_auto_trusted_slice_weights.m,
 %                future wrapper runAllSlicesReal.m
 %
@@ -300,6 +300,6 @@ params.visualize.save_figures = false;
 %% FINAL: Real-data analysis complete
 %  =========================================================================
 fprintf('========================================\n');
-fprintf('Real-data MT-SBD-STM analysis script finished.\n');
+fprintf('Real-data MC-SBD-STM analysis script finished.\n');
 fprintf('========================================\n');
 

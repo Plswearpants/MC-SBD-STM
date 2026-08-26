@@ -139,8 +139,10 @@ function validateData(data)
     if isempty(data)
         error('Input data is empty');
     end
-    if ndims(data) ~= 3
-        error('Input data must be 3-dimensional');
+    % MATLAB drops a trailing singleton, so HxW x 1 is stored as 2-D.
+    % Treat that as a one-slice stack (size(data,3)==1).
+    if ~isnumeric(data) || ndims(data) > 3 || size(data, 1) < 2 || size(data, 2) < 2
+        error('Input data must be a 2-D image or a 3-D image stack');
     end
     
     % Check for NaN values

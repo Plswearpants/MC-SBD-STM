@@ -45,6 +45,7 @@ results/parallel results/
 !examples/example_data/LDoS_sim.mat
 !examples/example_data/LDoS_single_defects_self=0.6_save.mat
 !examples/example_data/LDoS_single_defect_save.mat
+!examples/example_data/simple_mcsbd_2d/simple_mcsbd_2d.mat
 !config/*.mat
 !config/legacy/**
 !core/*.mat

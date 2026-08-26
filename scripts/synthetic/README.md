@@ -1,4 +1,4 @@
-# MT-SBD-STM Synthetic Data Script - Reorganization Documentation
+# MC-SBD-STM Synthetic Data Script - Reorganization Documentation
 
 ## Overview
 
@@ -14,10 +14,10 @@ The script is organized into 8 main functional blocks, each with a unique 5-char
 |----------|------|---------|---------------|
 | **GD01A** | Generate-Data-01-A | Generate synthetic 3D STM observation | `properGen_full`, `normalizeBackgroundToZeroMean3D`, `proj2oblique` |
 | **IN01A** | Initialize-kNernel-01-A | Initialize kernels for reference slice | `initialize_kernels` |
-| **DS01A** | Decompose-Slice-01-A | Decompose reference slice using MT-SBD | `MTSBD_synthetic`, `Asolve_Manopt_tunable`, `Xsolve_FISTA_tunable` |
+| **DS01A** | Decompose-Slice-01-A | Decompose reference slice using MC-SBD | `MCSBD_synthetic`, `Asolve_Manopt_tunable`, `Xsolve_FISTA_tunable` |
 | **IS01A** | Isolation-Selection-01-A | Find most isolated defect points | `alignActivationMaps`, `padKernels` |
 | **IP01A** | Initialize-Proliferation-01-A | Initialize kernels for all slices | `initialize_kernels_proliferation` |
-| **DA01A** | Decompose-All-01-A | Decompose all slices simultaneously | `MTSBD_synthetic_all_slice`, `convfft3` |
+| **DA01A** | Decompose-All-01-A | Decompose all slices simultaneously | `MCSBD_synthetic_all_slice`, `convfft3` |
 | **VR01A** | Visualize-Results-01-A | Comprehensive result visualization | `visualizeResults` |
 | **WS01A** | Write-Save-01-A | Save workspace and results | Standard MATLAB save |
 
@@ -208,8 +208,7 @@ DATE and TIME         BLOCK   COMMENT
 - `apply_window.m` - Window function application
 
 **DS01A (Decompose Slice)**
-- `MTSBD_synthetic.m` - Main SBD algorithm
-- `MTSBD_synthetic_Xregulated.m` - X-regularized variant
+- `MCSBD_synthetic.m` - Main SBD algorithm
 - `Asolve_Manopt_tunable.m` - Kernel solver
 - `Xsolve_FISTA_tunable.m` - Activation solver
 - `computeQualityMetrics.m` - Quality assessment
@@ -224,8 +223,7 @@ DATE and TIME         BLOCK   COMMENT
 - `initialize_kernels_proliferation.m` - Proliferation initialization
 
 **DA01A (Decompose All)**
-- `MTSBD_synthetic_all_slice.m` - Multi-slice SBD
-- `MTSBD_synthetic_Xregulated_all_slices.m` - X-regularized variant
+- `MCSBD_synthetic_all_slice.m` - Multi-slice SBD
 - `convfft3.m` - 3D convolution
 
 **VR01A (Visualize Results)**
@@ -233,7 +231,7 @@ DATE and TIME         BLOCK   COMMENT
 
 ## Comparison with Original Script
 
-| Aspect | Original (`MTSBD_block_synthetic.m`) | New (`run_synthetic_data.m`) |
+| Aspect | Original (`MCSBD_block_synthetic.m`) | New (`run_synthetic_data.m`) |
 |--------|--------------------------------------|------------------------------|
 | **Structure** | 3 informal blocks with comments | 8 formal blocks with IDs |
 | **Logging** | None | Comprehensive with timestamps |
@@ -326,7 +324,7 @@ To skip a block (e.g., if data already generated):
 - UBC LAIR Template: `template/TEMPLATE_Script_DOCUMENTATION.md`
 - Quick Reference: `template/TEMPLATE_script_QUICK_REFERENCE.md`
 - Logging Function: `Dong_func/basic/logUsedBlocks.m`
-- Original Script: `scripts/MTSBD_block_synthetic.m`
+- Original Script: `scripts/MCSBD_block_synthetic.m`
 
 ## Version History
 
@@ -339,5 +337,5 @@ To skip a block (e.g., if data already generated):
 
 **Author**: [Your Name]  
 **Last Updated**: 2025-10-27  
-**Project**: MT-SBD-STM
+**Project**: MC-SBD-STM
 

@@ -23,10 +23,14 @@ flowchart TB
 
   subgraph synOne [SyntheticSingleDataset]
     Srun[scripts/synthetic/synthetic_data]
+    Sex[examples/simple_MCSBD_example]
     Sviz[VR01A visualizeResults]
     Sproj[projects/ via createProjectStructure]
+    Sdata[examples/example_data/simple_mcsbd_2d]
     Srun --> Sviz
     Sproj --> Srun
+    Sdata --> Sex
+    Sex --> Sviz
   end
 
   subgraph synBatch [SyntheticParameterSpace]
@@ -44,7 +48,7 @@ flowchart TB
     Lib[lib/ domain]
     Wrap[lib/wrapper]
     Utils[utils/config]
-    Algo[solvers/ MT_SBD MTSBD SBD_test]
+    Algo[solvers/ MC_SBD MCSBD_synthetic MCSBD_all_slice_modified SBD SBD_test_multi_parallel]
     Vendor[vendor/]
   end
 
@@ -70,3 +74,5 @@ flowchart TB
 | 6 | Drop run-env; trial record is project folder + `*_LOGfile.txt` | Done |
 | 7 | Remove root stubs; park `hist_*` under `historical/`; drop `RUN_` prefix | Done |
 | 8 | Phase-space viz: independent B/V Run Section cells; drop master `run_build`/`run_visualize` | Done |
+| 9 | Simple MCSBD example: freeze/load data+params, no session log | Done |
+| 10 | Trim `solvers/`: delete dead/broken; `hist_` experimental solvers | Done |

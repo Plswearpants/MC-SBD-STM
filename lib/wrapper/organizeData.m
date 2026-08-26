@@ -29,7 +29,7 @@ function data_out = organizeData(data_in, mode)
 %       ├─ mcsbd_slice         % Single-slice decomposition results
 %       │  ├─ A, X, b          % Deconvolved kernels, activations, bias
 %       │  ├─ extras           % Optimization details
-%       │  ├─ mtsbd_time       % Execution time
+%       │  ├─ mcsbd_time       % Execution time
 %       │  ├─ final_metrics    % Activation quality metrics
 %       │  ├─ final_kernel_quality % Kernel quality factors
 %       │  ├─ kernel_centers   % Most isolated points (from IS01A, for proliferation)
@@ -80,7 +80,7 @@ function data_hier = flatToHierarchical(data_flat)
     
     initialization_fields = {'A_init', 'init_kernel_centers'};  
     
-    mcsbd_slice_fields = {'A', 'X', 'b', 'extras', 'mtsbd_time', ...
+    mcsbd_slice_fields = {'A', 'X', 'b', 'extras', 'mcsbd_time', ...
                           'final_metrics', 'final_kernel_quality', ...
                           'kernel_centers', 'A0_used', 'defect_positions', ...
                           'most_isolated_points', 'used_most_isolated_points', ...

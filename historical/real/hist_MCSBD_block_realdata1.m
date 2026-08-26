@@ -8,17 +8,17 @@
 cfg = init_config();
 
 % Optional run-environment output root.
-run_env_dir = getenv('MT_SBD_RUN_ENV');
-if isempty(run_env_dir) && isappdata(0, 'MT_SBD_RUN_ENV')
-    run_env_dir = getappdata(0, 'MT_SBD_RUN_ENV');
+run_env_dir = getenv('MC_SBD_RUN_ENV');
+if isempty(run_env_dir) && isappdata(0, 'MC_SBD_RUN_ENV')
+    run_env_dir = getappdata(0, 'MC_SBD_RUN_ENV');
 end 
 
 % Optional runtime input loading: if Y is missing, prompt user to select a
 % .mat file and then select the variable entry to use as Y.
 if ~exist('Y', 'var') || isempty(Y)
-    all_inputs_dir = getenv('MT_SBD_ALL_INPUTS_DIR');
-    if isempty(all_inputs_dir) && isappdata(0, 'MT_SBD_ALL_INPUTS_DIR')
-        all_inputs_dir = getappdata(0, 'MT_SBD_ALL_INPUTS_DIR');
+    all_inputs_dir = getenv('MC_SBD_ALL_INPUTS_DIR');
+    if isempty(all_inputs_dir) && isappdata(0, 'MC_SBD_ALL_INPUTS_DIR')
+        all_inputs_dir = getappdata(0, 'MC_SBD_ALL_INPUTS_DIR');
     end
     if isempty(all_inputs_dir) || ~exist(all_inputs_dir, 'dir')
         all_inputs_dir = pwd;
@@ -183,7 +183,7 @@ fprintf('SNR_data = %d', SNR_data);
 
 %% Block 03: Reference slice run and visualize result
 % Actions:
-% - Configure and run MT_SBD on the reference slice.
+% - Configure and run MC_SBD on the reference slice.
 % - Visualize reference-slice reconstruction outputs.
 % Set up display functions
 figure;
@@ -209,14 +209,14 @@ params_ref.Xsolve = 'FISTA';
 % noise variance for computeResidualQuality.m
 params_ref.noise_var = eta_data;
 
-% % Update params for MTSBD
+% % Update params for MCSBD
 % for k = 1:num_kernels
 %     params_ref.xinit{k}.X = X_ref(:,:,k);
 %     params_ref.xinit{k}.b = 0;
 % end
 
 % Run and save
-[A_ref, X_ref, b_ref, extras_ref] = MT_SBD(Y_ref, kernel_sizes, params_ref, dispfun, A1_ref, miniloop_iteration, outerloop_maxIT);
+[A_ref, X_ref, b_ref, extras_ref] = MC_SBD(Y_ref, kernel_sizes, params_ref, dispfun, A1_ref, miniloop_iteration, outerloop_maxIT);
 
 % - Action: Visualize reference-slice result.
 [Y_rec,Y_rec_all] = visualizeRealResult(Y_ref,A_ref, X_ref, b_ref, extras_ref);
@@ -465,7 +465,7 @@ if use_trusted_weights
 end
 
 if ~use_trusted_weights
-    % Unweighted: allow MTSBD_all_slice_modified to default slice_weights = ones
+    % Unweighted: allow MCSBD_all_slice_modified to default slice_weights = ones
     params.slice_weights = [];
     params.slice_weight_details = struct();
     params.slice_weight_details.trusted_counts = run_num_slices * ones(1, run_num_kernels);
@@ -506,7 +506,7 @@ params.kernel_update_order = 1:run_num_kernels;  % local order for selected kern
 
 use_custom_order = true;
 if use_custom_order
-    use_custom_order = input('Use custom kernel update order for MTSBD_all_slice_modified? (0/1): ');
+    use_custom_order = input('Use custom kernel update order for MCSBD_all_slice_modified? (0/1): ');
 end
 if ~isempty(use_custom_order) && use_custom_order
     custom_order = input(sprintf('Enter kernel update permutation of 1:%d (e.g. [2 1 3 ...]): ', run_num_kernels));
@@ -535,10 +535,10 @@ for n = 1:run_num_kernels
 end
 
 if params.use_Xregulated
-    [REG_Aout_ALL, REG_Xout_ALL, REG_bout_ALL, REG_extras_ALL] = MTSBD_Xregulated_all_slices(...
+    [REG_Aout_ALL, REG_Xout_ALL, REG_bout_ALL, REG_extras_ALL] = MCSBD_Xregulated_all_slices(...
         Y_used, kernel_sizes_used, params, dispfun, A1_used, miniloop_iteration, outerloop_maxIT);
 else
-    [Aout_ALL, Xout_ALL, bout_ALL, ALL_extras] = MTSBD_all_slice_modified(...
+    [Aout_ALL, Xout_ALL, bout_ALL, ALL_extras] = MCSBD_all_slice_modified(...
         Y_used, kernel_sizes_used, params, dispfun, A1_used, miniloop_iteration, outerloop_maxIT);
 end
 
@@ -773,7 +773,7 @@ params_ref.Xsolve = cfg.sliceRunPadded.Xsolve;
 params_ref.noise_var = eta_data;
 %% R04: Run the padded initialization (retire)
 % 2. The fun part
-[A_ref_pad, X_ref_pad, b_ref_pad, extras_ref_pad] = MT_SBD(Y_ref, kernel_sizes_pad, params_ref, dispfun, A1_ref, miniloop_iteration, outerloop_maxIT);
+[A_ref_pad, X_ref_pad, b_ref_pad, extras_ref_pad] = MC_SBD(Y_ref, kernel_sizes_pad, params_ref, dispfun, A1_ref, miniloop_iteration, outerloop_maxIT);
 %% R05: Visualize padded result (retire)
 visualizeRealResult(Y_ref,A_ref_pad, X_ref_pad, b_ref_pad, extras_ref_pad);
 %% R06: Reconstructed Y (retire) 
@@ -782,7 +782,7 @@ for k = 1:num_kernels
     Y_rec_pad(:,:,k) = convfft2(A_ref_pad{1,k}, X_ref_pad(:,:,k)) + b_ref_pad(k);
 end
 %% R07: Save the padded ones (retire) 
-padfilename = sprintf('MTSBD_LiFeAs_%f meV.mat',1000*params_ref.energy);
+padfilename = sprintf('MCSBD_LiFeAs_%f meV.mat',1000*params_ref.energy);
 %save(padfilename,'Y_ref','A_ref_pad', 'X_ref_pad', 'b_ref_pad', 'extras_ref_pad', 'params_ref');
 save(padfilename,'Y_ref','A_ref', 'X_ref', 'b_ref', 'extras_ref', 'params_ref');
 
@@ -916,7 +916,7 @@ for n = 1:num_kernels
     dispfun{n} = @(Y, A, X, kernel_sizes_sing, kplus) showims(Y_used, A1_used{n}, X_ref(:,:,n), A, X, kernel_sizes_single, kplus, 1);
 end
 
-% Update params for MTSBD
+% Update params for MCSBD
 for k = 1:num_kernels
     params.xinit{k}.X = X_ref(:,:,k);
     b_temp = extras_ref.phase1.biter(k); 
@@ -924,10 +924,10 @@ for k = 1:num_kernels
 end
 
 if params.use_Xregulated
-    [REG_Aout_ALL, REG_Xout_ALL, REG_bout_ALL, REG_extras_ALL] = MTSBD_Xregulated_all_slices(...
+    [REG_Aout_ALL, REG_Xout_ALL, REG_bout_ALL, REG_extras_ALL] = MCSBD_Xregulated_all_slices(...
         Y_used, kernel_sizes_pad, params, dispfun, A1_used, miniloop_iteration, outerloop_maxIT);
 else
-    [Aout_ALL, Xout_ALL, bout_ALL, ALL_extras] = MTSBD_all_slice_modified(...
+    [Aout_ALL, Xout_ALL, bout_ALL, ALL_extras] = MCSBD_all_slice_modified(...
         Y_used, kernel_sizes_pad, params, dispfun, A1_used, miniloop_iteration, outerloop_maxIT);
 end
 
@@ -950,10 +950,10 @@ for i = 1: size(A1_all,1)
     visualizeRealResult(Y_used(:,:,i), Aout_ALL_cell(i,:), Xout_ALL, bout_ALL(i,:), pp);
 end
 
-%% R20: Sequential processing with MT_SBD.m (retire)
-% This block processes each slice individually using MT_SBD.m sequentially
+%% R20: Sequential processing with MC_SBD.m (retire)
+% This block processes each slice individually using MC_SBD.m sequentially
 fprintf('\n=== SEQUENTIAL PROCESSING BLOCK ===\n');
-fprintf('Processing each slice individually with MT_SBD.m\n');
+fprintf('Processing each slice individually with MC_SBD.m\n');
 
 % Initialize storage for sequential results
 Aout_seq = cell(num_slices, num_kernels);
@@ -1010,9 +1010,9 @@ for s = 1:num_slices
         params_seq.xinit{k}.b = extras_ref.phase1.biter(k);
     end
     
-    % Run MT_SBD for this slice (same as Block 4)
+    % Run MC_SBD for this slice (same as Block 4)
     try
-        [Aout_slice, Xout_slice, bout_slice, extras_slice] = MT_SBD(...
+        [Aout_slice, Xout_slice, bout_slice, extras_slice] = MC_SBD(...
             Y_slice, kernel_sizes, params_seq, dispfun_seq, A1_slice, ...
             miniloop_iteration_seq, outerloop_maxIT_seq);
         
@@ -1369,7 +1369,7 @@ end
 
 function notify_allslice_completion(output_file, run_slice_idx, run_kernel_idx)
     timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
-    summary_msg = sprintf(['MT-SBD all-slice block finished at %s. ', ...
+    summary_msg = sprintf(['MC-SBD all-slice block finished at %s. ', ...
         'Slices=%s, Kernels=%s. Output=%s'], ...
         timestamp, mat2str(run_slice_idx), mat2str(run_kernel_idx), output_file);
     fprintf('%s\n', summary_msg);
@@ -1390,14 +1390,14 @@ function notify_allslice_completion(output_file, run_slice_idx, run_kernel_idx)
             pause(0.15);
         end
         if usejava('desktop')
-            msgbox(summary_msg, 'MT-SBD All-slice Finished', 'help');
+            msgbox(summary_msg, 'MC-SBD All-slice Finished', 'help');
         end
     catch
         % Non-interactive sessions may not support popup/beep.
     end
 
     % Optional webhook notification (Slack/Discord/custom endpoint).
-    webhook_url = getenv('MT_SBD_NOTIFY_WEBHOOK_URL');
+    webhook_url = getenv('MC_SBD_NOTIFY_WEBHOOK_URL');
     if ~isempty(webhook_url)
         try
             payload = struct();
@@ -1415,11 +1415,11 @@ function notify_allslice_completion(output_file, run_slice_idx, run_kernel_idx)
     end
 
     % Optional email notification.
-    email_to = getenv('MT_SBD_NOTIFY_EMAIL');
+    email_to = getenv('MC_SBD_NOTIFY_EMAIL');
     if ~isempty(email_to)
         try
             configure_sendmail_from_env();
-            subject = 'MT-SBD all-slice block finished';
+            subject = 'MC-SBD all-slice block finished';
             sendmail(email_to, subject, summary_msg);
             fprintf('Email notification sent to %s.\n', email_to);
         catch ME
@@ -1431,20 +1431,20 @@ end
 
 function configure_sendmail_from_env()
     % Optional SMTP auto-configuration from environment variables:
-    %   MT_SBD_SMTP_SERVER       (e.g. smtp.gmail.com)
-    %   MT_SBD_SMTP_PORT         (e.g. 465 or 587)
-    %   MT_SBD_SMTP_USERNAME     (sender/login email)
-    %   MT_SBD_SMTP_PASSWORD     (app password/token)
-    %   MT_SBD_SMTP_SENDER       (optional; defaults to username)
-    %   MT_SBD_SMTP_USE_SSL      (optional: 0/1; default 1 for port 465)
-    %   MT_SBD_SMTP_USE_STARTTLS (optional: 0/1; default 1 for port 587)
-    smtp_server = getenv('MT_SBD_SMTP_SERVER');
-    smtp_port_str = getenv('MT_SBD_SMTP_PORT');
-    smtp_username = getenv('MT_SBD_SMTP_USERNAME');
-    smtp_password = getenv('MT_SBD_SMTP_PASSWORD');
-    smtp_sender = getenv('MT_SBD_SMTP_SENDER');
-    use_ssl_str = getenv('MT_SBD_SMTP_USE_SSL');
-    use_starttls_str = getenv('MT_SBD_SMTP_USE_STARTTLS');
+    %   MC_SBD_SMTP_SERVER       (e.g. smtp.gmail.com)
+    %   MC_SBD_SMTP_PORT         (e.g. 465 or 587)
+    %   MC_SBD_SMTP_USERNAME     (sender/login email)
+    %   MC_SBD_SMTP_PASSWORD     (app password/token)
+    %   MC_SBD_SMTP_SENDER       (optional; defaults to username)
+    %   MC_SBD_SMTP_USE_SSL      (optional: 0/1; default 1 for port 465)
+    %   MC_SBD_SMTP_USE_STARTTLS (optional: 0/1; default 1 for port 587)
+    smtp_server = getenv('MC_SBD_SMTP_SERVER');
+    smtp_port_str = getenv('MC_SBD_SMTP_PORT');
+    smtp_username = getenv('MC_SBD_SMTP_USERNAME');
+    smtp_password = getenv('MC_SBD_SMTP_PASSWORD');
+    smtp_sender = getenv('MC_SBD_SMTP_SENDER');
+    use_ssl_str = getenv('MC_SBD_SMTP_USE_SSL');
+    use_starttls_str = getenv('MC_SBD_SMTP_USE_STARTTLS');
 
     if isempty(smtp_server) || isempty(smtp_username) || isempty(smtp_password)
         % Respect existing MATLAB sendmail configuration.
@@ -1460,7 +1460,7 @@ function configure_sendmail_from_env()
     else
         smtp_port = str2double(smtp_port_str);
         if isnan(smtp_port) || smtp_port <= 0
-            error('Invalid MT_SBD_SMTP_PORT: %s', smtp_port_str);
+            error('Invalid MC_SBD_SMTP_PORT: %s', smtp_port_str);
         end
     end
 

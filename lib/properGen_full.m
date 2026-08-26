@@ -377,9 +377,19 @@ function [Y, A0_noiseless, X0, params] = properGen_full(varargin)
     params.eta_slices = eta_slices;
     params.std_norm = std_norm;
 
-    % Display 3D view
-    figure('Name', '3D Observation');
-    d3gridDisplay(Y, 'dynamic');
-    title('3D View of Generated Observation');
+    % Display observation. MATLAB stores a one-slice stack as HxW, so the
+    % 3-D slider viewer is only used when there are two or more slices.
+    if num_slices == 1
+        figure('Name', 'Generated Observation');
+        imagesc(Y);
+        axis square;
+        colormap(gray);
+        colorbar;
+        title('Generated 2D observation (1 energy slice)');
+    else
+        figure('Name', '3D Observation');
+        d3gridDisplay(Y, 'dynamic');
+        title('3D View of Generated Observation');
+    end
 end
    

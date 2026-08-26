@@ -61,7 +61,7 @@ preprocessing_params.manualStreakRemoval_factor = factor;
 Y_local_removed = zeros(size(data_carried));
 
 for s = preprocessing_params.manualStreakRemoval_slices
-    [~, var_list, low_list] = streak_correction(data_carried(:,:,s),3,'valley');
+    [~, var_list, low_list] = hist_streak_correction(data_carried(:,:,s),3,'valley');
     figure; plot(low_list, var_list);
     [min_var,min_idx]=min(var_list);
     min_low = low_list(min_idx);
@@ -90,7 +90,7 @@ preprocessing_params.autoStreakRemoval_factor2 = factor2;
 data_local_removed_auto = zeros(size(data_carried));
 for s = preprocessing_params.autoStreakRemoval_slices
     % 1. Find optimal threshold automatically (e.g., by minimizing variance)
-    [~, var_list, low_list] = streak_correction(data_carried(:,:,s), 3, 'plateau');
+    [~, var_list, low_list] = hist_streak_correction(data_carried(:,:,s), 3, 'plateau');
     [~, min_idx] = min(var_list);
     min_low = low_list(min_idx);
 
@@ -277,7 +277,7 @@ params_ref.noise_var = eta_data;
 
 % Run and save 
 % 2. The fun part
-[A_ref, X_ref, b_ref, extras_ref] = MT_SBD(Y_ref, kernel_sizes, params_ref, dispfun, A1_ref, miniloop_iteration, outerloop_maxIT);
+[A_ref, X_ref, b_ref, extras_ref] = MC_SBD(Y_ref, kernel_sizes, params_ref, dispfun, A1_ref, miniloop_iteration, outerloop_maxIT);
 
 %% Visualize Reference result 
 [Y_rec,Y_rec_all] = visualizeRealResult(Y_ref,A_ref, X_ref, b_ref, extras_ref);
@@ -355,7 +355,7 @@ params_ref.Xsolve = 'FISTA';
 params_ref.noise_var = eta_data;
 %% Run the padded initialization 
 % 2. The fun part
-[A_ref_pad, X_ref_pad, b_ref_pad, extras_ref_pad] = MT_SBD(Y_ref, kernel_sizes_pad, params_ref, dispfun, A1_ref, miniloop_iteration, outerloop_maxIT);
+[A_ref_pad, X_ref_pad, b_ref_pad, extras_ref_pad] = MC_SBD(Y_ref, kernel_sizes_pad, params_ref, dispfun, A1_ref, miniloop_iteration, outerloop_maxIT);
 %% Visualize Padded result 
 visualizeRealResult(Y_ref,A_ref_pad, X_ref_pad, b_ref_pad, extras_ref_pad);
 %% Reconstructed Y 
@@ -364,7 +364,7 @@ for k = 1:num_kernels
     Y_rec_pad(:,:,k) = convfft2(A_ref_pad{1,k}, X_ref_pad(:,:,k)) + b_ref_pad(k);
 end
 %% Save the padded ones 
-padfilename = sprintf('MTSBD_LiFeAs_%f meV.mat',1000*params_ref.energy);
+padfilename = sprintf('MCSBD_LiFeAs_%f meV.mat',1000*params_ref.energy);
 %save(padfilename,'Y_ref','A_ref_pad', 'X_ref_pad', 'b_ref_pad', 'extras_ref_pad', 'params_ref');
 save(padfilename,'Y_ref','A_ref', 'X_ref', 'b_ref', 'extras_ref', 'params_ref');
 
@@ -667,7 +667,7 @@ for n = 1:num_kernels
     dispfun{n} = @(Y, A, X, kernel_sizes_sing, kplus) showims(Y_used, A1_used{n}, X_ref(:,:,n), A, X, kernel_sizes_single, kplus, 1);
 end
 
-% Update params for MTSBD
+% Update params for MCSBD
 for k = 1:num_kernels
     params.xinit{k}.X = X_ref(:,:,k);
     b_temp = extras_ref.phase1.biter(k); 
@@ -675,10 +675,10 @@ for k = 1:num_kernels
 end
 
 if params.use_Xregulated
-    [REG_Aout_ALL, REG_Xout_ALL, REG_bout_ALL, REG_extras_ALL] = MTSBD_Xregulated_all_slices(...
+    [REG_Aout_ALL, REG_Xout_ALL, REG_bout_ALL, REG_extras_ALL] = MCSBD_Xregulated_all_slices(...
         Y_used, kernel_sizes, params, dispfun, A1_used, miniloop_iteration, outerloop_maxIT);
 else
-    [Aout_ALL, Xout_ALL, bout_ALL, ALL_extras] = MTSBD_all_slice_modified(...
+    [Aout_ALL, Xout_ALL, bout_ALL, ALL_extras] = MCSBD_all_slice_modified(...
         Y_used, kernel_sizes, params, dispfun, A1_used, miniloop_iteration, outerloop_maxIT);
 end
 
@@ -900,7 +900,7 @@ for n = 1:num_kernels
     dispfun{n} = @(Y, A, X, kernel_sizes_sing, kplus) showims(Y_used, A1_used{n}, X_ref(:,:,n), A, X, kernel_sizes_single, kplus, 1);
 end
 
-% Update params for MTSBD
+% Update params for MCSBD
 for k = 1:num_kernels
     params.xinit{k}.X = X_ref(:,:,k);
     b_temp = extras_ref.phase1.biter(k); 
@@ -908,10 +908,10 @@ for k = 1:num_kernels
 end
 
 if params.use_Xregulated
-    [REG_Aout_ALL, REG_Xout_ALL, REG_bout_ALL, REG_extras_ALL] = MTSBD_Xregulated_all_slices(...
+    [REG_Aout_ALL, REG_Xout_ALL, REG_bout_ALL, REG_extras_ALL] = MCSBD_Xregulated_all_slices(...
         Y_used, kernel_sizes_pad, params, dispfun, A1_used, miniloop_iteration, outerloop_maxIT);
 else
-    [Aout_ALL, Xout_ALL, bout_ALL, ALL_extras] = MTSBD_all_slice_modified(...
+    [Aout_ALL, Xout_ALL, bout_ALL, ALL_extras] = MCSBD_all_slice_modified(...
         Y_used, kernel_sizes_pad, params, dispfun, A1_used, miniloop_iteration, outerloop_maxIT);
 end
 
@@ -934,10 +934,10 @@ for i = 1: size(A1_all,1)
     visualizeRealResult(Y_used(:,:,i), Aout_ALL_cell(i,:), Xout_ALL, bout_ALL(i,:), pp);
 end
 
-%% Block 5: Sequential Processing with MT_SBD.m
-% This block processes each slice individually using MT_SBD.m sequentially
+%% Block 5: Sequential Processing with MC_SBD.m
+% This block processes each slice individually using MC_SBD.m sequentially
 fprintf('\n=== SEQUENTIAL PROCESSING BLOCK ===\n');
-fprintf('Processing each slice individually with MT_SBD.m\n');
+fprintf('Processing each slice individually with MC_SBD.m\n');
 
 % Initialize storage for sequential results
 Aout_seq = cell(num_slices, num_kernels);
@@ -994,9 +994,9 @@ for s = 1:num_slices
         params_seq.xinit{k}.b = extras_ref.phase1.biter(k);
     end
     
-    % Run MT_SBD for this slice (same as Block 4)
+    % Run MC_SBD for this slice (same as Block 4)
     try
-        [Aout_slice, Xout_slice, bout_slice, extras_slice] = MT_SBD(...
+        [Aout_slice, Xout_slice, bout_slice, extras_slice] = MC_SBD(...
             Y_slice, kernel_sizes, params_seq, dispfun_seq, A1_slice, ...
             miniloop_iteration_seq, outerloop_maxIT_seq);
         

@@ -1,7 +1,7 @@
 function [meta] = saveRun(log, data, params, meta, varargin)
 %SAVERUN Save algorithm run results (post-run phase)
 %
-%   Saves the results of MT-SBD algorithm execution (single-slice or block)
+%   Saves the results of MC-SBD algorithm execution (single-slice or block)
 %   in a runXX subfolder with sequential numbering.
 %
 %   [meta] = saveRun(log, data, params, meta, ...)
@@ -31,7 +31,7 @@ function [meta] = saveRun(log, data, params, meta, varargin)
 %       \run_<dataset>_XX\run_<dataset>_XX_LOGfile.txt - Copy of log file
 %
 %   FOLDER STRUCTURE:
-%       \MT-SBD-STM\projects\synthetic_<timestamp>\
+%       \MC-SBD-STM\projects\synthetic_<timestamp>\
 %           ├─ auto.mat or manualXX.mat (dataset files)
 %           ├─ run_auto_01\              (runs based on auto.mat)
 %           │  ├─ run_auto_01.mat

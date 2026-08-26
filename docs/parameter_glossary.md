@@ -1,4 +1,4 @@
-# MT-SBD-STM Parameter Glossary
+# MC-SBD-STM Parameter Glossary
 
 **Last Updated**: 2025-10-27  
 **Author**: Dong Chen  
@@ -175,7 +175,7 @@ Contains detailed analysis results:
 ## All-Slice Decomposition Parameters
 
 ### Block: DA01A (Decompose-All-01-A)
-### Function: `MTSBD_synthetic_all_slice.m`
+### Function: `MCSBD_synthetic_all_slice.m`
 
 | Parameter | Type | Units | Range | Default | Description |
 |-----------|------|-------|-------|---------|-------------|

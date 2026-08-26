@@ -1,4 +1,4 @@
-# MT-SBD-STM Reorganization Test Plan
+# MC-SBD-STM Reorganization Test Plan
 
 **Date**: 2025-10-31  
 **Author**: AI Assistant  
@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document outlines a series of tests to validate that the reorganized MT-SBD-STM workflow achieves the intended goals:
+This document outlines a series of tests to validate that the reorganized MC-SBD-STM workflow achieves the intended goals:
 
 1. **Hierarchical data organization** (`data.synGen`, `data.mcsbd_slice`, `data.mcsbd_block`)
 2. **Automatic kernel initialization** with optional manual override
@@ -93,7 +93,7 @@ This document outlines a series of tests to validate that the reorganized MT-SBD
 **Steps**:
 1. Run complete workflow through `decomposeReferenceSlice`
 2. Check that `data.mcsbd_slice` exists
-3. Verify fields: `A`, `X`, `b`, `extras`, `mtsbd_time`, `final_metrics`, `final_kernel_quality`
+3. Verify fields: `A`, `X`, `b`, `extras`, `mcsbd_time`, `final_metrics`, `final_kernel_quality`
 4. Verify no `data.singleslice_run` field exists (old structure)
 
 **Expected Result**:
@@ -108,13 +108,13 @@ This document outlines a series of tests to validate that the reorganized MT-SBD
 ## Test Category 2: Kernel Initialization
 
 ### Test 2.1: Auto Initialization from Ground Truth
-**Objective**: Verify auto initialization works without running MT-SBD
+**Objective**: Verify auto initialization works without running MC-SBD
 
 **Steps**:
 1. Run `generateSyntheticData`
 2. Run `autoInitializeKernels`
 3. Verify that kernels are initialized at isolated points
-4. Check that no MT-SBD algorithm was run (no `data.mcsbd_slice`)
+4. Check that no MC-SBD algorithm was run (no `data.mcsbd_slice`)
 
 **Expected Result**:
 - Kernels initialized successfully

@@ -1,6 +1,6 @@
-function [corrected_list, var_list, lower_list] = streak_correction(data, max_streak_width, mode)
-% STREAK_CORRECTION Corrects streaks in image data using multi-scale Laplacian-based detection
-%   [corrected_list, var_list, lower_list] = streak_correction(data, max_streak_width, mode)
+function [corrected_list, var_list, lower_list] = hist_streak_correction(data, max_streak_width, mode)
+% HIST_STREAK_CORRECTION Corrects streaks in image data using multi-scale Laplacian-based detection
+%   [corrected_list, var_list, lower_list] = hist_streak_correction(data, max_streak_width, mode)
 %
 %   Threshold list is built from the *population* (sorted Laplacian values): we take
 %   thresholds at linearly spaced ranks (e.g. 10th, 20th, ... point), not linear value

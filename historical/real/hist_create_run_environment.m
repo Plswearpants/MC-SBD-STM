@@ -21,7 +21,7 @@ function env = hist_create_run_environment(run_dir, varargin)
 %     <run_dir>/run_hist_real_data.m    (retired combined raw-to-result trunk)
 %     <run_dir>/activate_env.m
 %
-%   Launchers set MT_SBD_RUN_ENV so tunable solver configs are always read
+%   Launchers set MC_SBD_RUN_ENV so tunable solver configs are always read
 %   from <run_dir>/config and expose ALL_INPUTS_DIR for data loading.
 
     if nargin < 1 || isempty(run_dir)
@@ -137,8 +137,8 @@ function env = hist_create_run_environment(run_dir, varargin)
         fullfile(run_dir, 'activate_env.m') ...
     };
 
-    setappdata(0, 'MT_SBD_RUN_ENV', run_dir);
-    setenv('MT_SBD_RUN_ENV', run_dir);
+    setappdata(0, 'MC_SBD_RUN_ENV', run_dir);
+    setenv('MC_SBD_RUN_ENV', run_dir);
 
     fprintf('Run environment created at: %s\n', run_dir);
     if copy_input_files
@@ -169,10 +169,10 @@ function write_launcher(run_dir, repo_root, launcher_name, target_script, shared
     fprintf(fid, 'all_inputs_dir = ''%s'';\n', escape_single_quotes(shared_input_dir));
     fprintf(fid, 'repo_root = ''%s'';\n', escape_single_quotes(repo_root));
     fprintf(fid, 'target_script = ''%s'';\n', escape_single_quotes(target_script));
-    fprintf(fid, 'setappdata(0, ''MT_SBD_RUN_ENV'', run_env);\n');
-    fprintf(fid, 'setenv(''MT_SBD_RUN_ENV'', run_env);\n');
-    fprintf(fid, 'setappdata(0, ''MT_SBD_ALL_INPUTS_DIR'', all_inputs_dir);\n');
-    fprintf(fid, 'setenv(''MT_SBD_ALL_INPUTS_DIR'', all_inputs_dir);\n');
+    fprintf(fid, 'setappdata(0, ''MC_SBD_RUN_ENV'', run_env);\n');
+    fprintf(fid, 'setenv(''MC_SBD_RUN_ENV'', run_env);\n');
+    fprintf(fid, 'setappdata(0, ''MC_SBD_ALL_INPUTS_DIR'', all_inputs_dir);\n');
+    fprintf(fid, 'setenv(''MC_SBD_ALL_INPUTS_DIR'', all_inputs_dir);\n');
     fprintf(fid, 'cd(run_env);\n');
     fprintf(fid, 'addpath(repo_root);\n');
     fprintf(fid, 'init_sbd(''quiet'', false);\n');
@@ -188,7 +188,7 @@ function write_input_manifest(run_dir, shared_input_dir, registered_inputs, copy
     end
     cleanup_obj = onCleanup(@() fclose(fid)); %#ok<NASGU>
 
-    fprintf(fid, 'MT-SBD input manifest\n');
+    fprintf(fid, 'MC-SBD input manifest\n');
     fprintf(fid, 'shared_input_dir=%s\n', shared_input_dir);
     fprintf(fid, 'copy_input_files=%d\n', copy_input_files);
     fprintf(fid, 'registered_inputs:\n');

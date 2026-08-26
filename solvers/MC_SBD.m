@@ -1,4 +1,4 @@
-function [ Aout, Xout, bout, extras ] = MT_SBD( Y, k, params, dispfun, kernel_initialguess, Max_iteration, maxIT)
+function [ Aout, Xout, bout, extras ] = MC_SBD( Y, k, params, dispfun, kernel_initialguess, Max_iteration, maxIT)
     %Multi Type Sparse Blind Deconvolution for real data 
     %
     %   PARAMS STRUCT:
@@ -319,7 +319,7 @@ function ensure_tunable_configs(max_iteration, params)
     while ~exist(fullfile(repo_root, 'init_sbd.m'), 'file')
         parent = fileparts(repo_root);
         if isempty(parent) || strcmp(parent, repo_root)
-            error('Could not locate repo root from solvers/MT_SBD.m');
+            error('Could not locate repo root from solvers/MC_SBD.m');
         end
         repo_root = parent;
     end
@@ -337,8 +337,8 @@ function ensure_tunable_configs(max_iteration, params)
         if ~exist(config_dir, 'dir')
             mkdir(config_dir);
         end
-        setappdata(0, 'MT_SBD_RUN_ENV', run_env_dir);
-        setenv('MT_SBD_RUN_ENV', run_env_dir);
+        setappdata(0, 'MC_SBD_RUN_ENV', run_env_dir);
+        setenv('MC_SBD_RUN_ENV', run_env_dir);
     end
 
     xsolve_base = fullfile(config_dir, 'Xsolve_config.mat');
@@ -372,13 +372,13 @@ function run_env_dir = resolve_run_env_dir(params)
         run_env_dir = params.run_env_dir;
         return;
     end
-    if isappdata(0, 'MT_SBD_RUN_ENV')
-        run_env_dir = getappdata(0, 'MT_SBD_RUN_ENV');
+    if isappdata(0, 'MC_SBD_RUN_ENV')
+        run_env_dir = getappdata(0, 'MC_SBD_RUN_ENV');
         if ~isempty(run_env_dir)
             return;
         end
     end
-    run_env_dir = getenv('MT_SBD_RUN_ENV');
+    run_env_dir = getenv('MC_SBD_RUN_ENV');
 end
 
 function apply_config_update(config_file, param_path, new_value, new_file_name)

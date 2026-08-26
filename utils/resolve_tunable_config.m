@@ -1,7 +1,7 @@
 function config_path = resolve_tunable_config(config_filename)
 %RESOLVE_TUNABLE_CONFIG Resolve tunable config path for the current trial.
 %   Priority:
-%   1) Suffixed trial copy when MT_SBD_TUNABLE_ID is set:
+%   1) Suffixed trial copy when MC_SBD_TUNABLE_ID is set:
 %        <repo>/config/runtime_tunables/Xsolve_config_tunable_<id>.mat
 %   2) Unsuffixed session copy:
 %        <repo>/config/runtime_tunables/<config_filename>

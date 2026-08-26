@@ -6,14 +6,14 @@ function notify_allslice_completion(output_file, run_slice_idx, run_kernel_idx)
 %   output file so external watchers can poll for it. Additionally attempts,
 %   best effort and never fatally:
 %       - a local beep + message box (desktop sessions only)
-%       - a webhook POST when MT_SBD_NOTIFY_WEBHOOK_URL is set
-%       - an email when MT_SBD_NOTIFY_EMAIL is set
+%       - a webhook POST when MC_SBD_NOTIFY_WEBHOOK_URL is set
+%       - an email when MC_SBD_NOTIFY_EMAIL is set
 %
-%   Promoted from a local function in historical/real/hist_MTSBD_block_realdata1.m so
+%   Promoted from a local function in historical/real/hist_MCSBD_block_realdata1.m so
 %   that wrappers (runAllSlicesReal) can call it directly.
 
     timestamp = datestr(now, 'yyyy-mm-dd HH:MM:SS');
-    summary_msg = sprintf(['MT-SBD all-slice block finished at %s. ', ...
+    summary_msg = sprintf(['MC-SBD all-slice block finished at %s. ', ...
         'Slices=%s, Kernels=%s. Output=%s'], ...
         timestamp, mat2str(run_slice_idx), mat2str(run_kernel_idx), output_file);
     fprintf('%s\n', summary_msg);
@@ -34,14 +34,14 @@ function notify_allslice_completion(output_file, run_slice_idx, run_kernel_idx)
             pause(0.15);
         end
         if usejava('desktop')
-            msgbox(summary_msg, 'MT-SBD All-slice Finished', 'help');
+            msgbox(summary_msg, 'MC-SBD All-slice Finished', 'help');
         end
     catch
         % Non-interactive sessions may not support popup/beep.
     end
 
     % Optional webhook notification (Slack/Discord/custom endpoint).
-    webhook_url = getenv('MT_SBD_NOTIFY_WEBHOOK_URL');
+    webhook_url = getenv('MC_SBD_NOTIFY_WEBHOOK_URL');
     if ~isempty(webhook_url)
         try
             payload = struct();
@@ -59,11 +59,11 @@ function notify_allslice_completion(output_file, run_slice_idx, run_kernel_idx)
     end
 
     % Optional email notification.
-    email_to = getenv('MT_SBD_NOTIFY_EMAIL');
+    email_to = getenv('MC_SBD_NOTIFY_EMAIL');
     if ~isempty(email_to)
         try
             configure_sendmail_from_env();
-            subject = 'MT-SBD all-slice block finished';
+            subject = 'MC-SBD all-slice block finished';
             sendmail(email_to, subject, summary_msg);
             fprintf('Email notification sent to %s.\n', email_to);
         catch ME
@@ -75,20 +75,20 @@ end
 
 function configure_sendmail_from_env()
     % Optional SMTP auto-configuration from environment variables:
-    %   MT_SBD_SMTP_SERVER       (e.g. smtp.gmail.com)
-    %   MT_SBD_SMTP_PORT         (e.g. 465 or 587)
-    %   MT_SBD_SMTP_USERNAME     (sender/login email)
-    %   MT_SBD_SMTP_PASSWORD     (app password/token)
-    %   MT_SBD_SMTP_SENDER       (optional; defaults to username)
-    %   MT_SBD_SMTP_USE_SSL      (optional: 0/1; default 1 for port 465)
-    %   MT_SBD_SMTP_USE_STARTTLS (optional: 0/1; default 1 for port 587)
-    smtp_server = getenv('MT_SBD_SMTP_SERVER');
-    smtp_port_str = getenv('MT_SBD_SMTP_PORT');
-    smtp_username = getenv('MT_SBD_SMTP_USERNAME');
-    smtp_password = getenv('MT_SBD_SMTP_PASSWORD');
-    smtp_sender = getenv('MT_SBD_SMTP_SENDER');
-    use_ssl_str = getenv('MT_SBD_SMTP_USE_SSL');
-    use_starttls_str = getenv('MT_SBD_SMTP_USE_STARTTLS');
+    %   MC_SBD_SMTP_SERVER       (e.g. smtp.gmail.com)
+    %   MC_SBD_SMTP_PORT         (e.g. 465 or 587)
+    %   MC_SBD_SMTP_USERNAME     (sender/login email)
+    %   MC_SBD_SMTP_PASSWORD     (app password/token)
+    %   MC_SBD_SMTP_SENDER       (optional; defaults to username)
+    %   MC_SBD_SMTP_USE_SSL      (optional: 0/1; default 1 for port 465)
+    %   MC_SBD_SMTP_USE_STARTTLS (optional: 0/1; default 1 for port 587)
+    smtp_server = getenv('MC_SBD_SMTP_SERVER');
+    smtp_port_str = getenv('MC_SBD_SMTP_PORT');
+    smtp_username = getenv('MC_SBD_SMTP_USERNAME');
+    smtp_password = getenv('MC_SBD_SMTP_PASSWORD');
+    smtp_sender = getenv('MC_SBD_SMTP_SENDER');
+    use_ssl_str = getenv('MC_SBD_SMTP_USE_SSL');
+    use_starttls_str = getenv('MC_SBD_SMTP_USE_STARTTLS');
 
     if isempty(smtp_server) || isempty(smtp_username) || isempty(smtp_password)
         % Respect existing MATLAB sendmail configuration.
@@ -104,7 +104,7 @@ function configure_sendmail_from_env()
     else
         smtp_port = str2double(smtp_port_str);
         if isnan(smtp_port) || smtp_port <= 0
-            error('Invalid MT_SBD_SMTP_PORT: %s', smtp_port_str);
+            error('Invalid MC_SBD_SMTP_PORT: %s', smtp_port_str);
         end
     end
 

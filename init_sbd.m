@@ -9,7 +9,8 @@ function [] = init_sbd( mode, setdefconfig )
 %           Default: true.
 %
 %   Adds to path: repo root, core/, utils/, config/, lib/ (or Dong_func/),
-%   solvers/, vendor/, colormap/, and scripts/{real,synthetic,phase_space}/.
+%   solvers/, historical/solvers/, vendor/, colormap/, and
+%   scripts/{real,synthetic,phase_space}/.
 
     if nargin < 1;  mode = 'verbose';       end
     if nargin < 2;  setdefconfig = true;    end
@@ -35,6 +36,10 @@ function [] = init_sbd( mode, setdefconfig )
 
     if isfolder([fp 'solvers'])
         addpath(genpath([fp 'solvers']));
+    end
+
+    if isfolder([fp 'historical' filesep 'solvers'])
+        addpath([fp 'historical' filesep 'solvers']);
     end
 
     if isfolder([fp 'vendor'])

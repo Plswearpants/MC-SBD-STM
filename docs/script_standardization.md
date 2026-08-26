@@ -1,4 +1,4 @@
-## MT-SBD-STM script standardization (draft)
+## MC-SBD-STM script standardization (draft)
 
 Living repo map (streams, DAG, migration log): [`REPO_STRUCTURE.md`](REPO_STRUCTURE.md), [`REPO_STRUCTURE_DAG.md`](REPO_STRUCTURE_DAG.md), [`../history/repo_reorg.md`](../history/repo_reorg.md).
 

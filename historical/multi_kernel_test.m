@@ -97,7 +97,7 @@ params.getbias = true;
 params.Xsolve = 'FISTA';
 
 % 2. The fun part
-[Aout, Xout, extras] = SBD_test(Y, square_size, params, dispfun, A1);
+[Aout, Xout, extras] = hist_SBD_test(Y, square_size, params, dispfun, A1);
 
 % Save the result
 save('SBD-STM.mat', 'Y', 'X0', 'A0', 'Xout', 'Aout', 'sliceidx', 'square_size');

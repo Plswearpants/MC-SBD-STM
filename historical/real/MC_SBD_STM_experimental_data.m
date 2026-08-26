@@ -1,4 +1,4 @@
-% This script runs MT_SBD on real dataset. 
+% This script runs MC_SBD on real dataset. 
 clc; clear;
 
 % Import Manopt and initialize the SBD package
@@ -150,7 +150,7 @@ params.noise_var = eta_data;
 
 %% Run and save 
 % 2. The fun part
-[Aout, Xout, bout, extras] = MT_SBD(Y, kernel_sizes, params, dispfun, A1, miniloop_iteration, outerloop_maxIT);
+[Aout, Xout, bout, extras] = MC_SBD(Y, kernel_sizes, params, dispfun, A1, miniloop_iteration, outerloop_maxIT);
 
 % Save the result
 % Generate a unique filename for the work space

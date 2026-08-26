@@ -66,7 +66,7 @@ if ~isempty(streak_mask_in)
     return;
 end
 
-% Laplacian and threshold range (shared with streak_correction via streakCore)
+% Laplacian and threshold range (shared with hist_streak_correction via streakCore)
 [L_for_mask, slider_range] = streakCore('laplacian', data, mode, max_streak_width);
 % Population-ranked threshold list for UI slider (linear in rank, not value)
 lower_list_ui = streakCore('threshold_list', L_for_mask, 400);

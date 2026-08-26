@@ -2,7 +2,7 @@ function paths = registerTunableRun(log)
 %REGISTERTUNABLERUN Bind worker tunables to this trial and log their names.
 %   PATHS = REGISTERTUNABLERUN(LOG)
 %
-%   Sets MT_SBD_TUNABLE_ID from log.file so update_config / resolve_tunable_config
+%   Sets MC_SBD_TUNABLE_ID from log.file so update_config / resolve_tunable_config
 %   write and read:
 %     config/runtime_tunables/Xsolve_config_tunable_<log.file>.mat
 %     config/runtime_tunables/Asolve_config_tunable_<log.file>.mat
@@ -21,8 +21,8 @@ function paths = registerTunableRun(log)
     end
 
     run_id = regexprep(char(log.file), '[^A-Za-z0-9_-]', '_');
-    setappdata(0, 'MT_SBD_TUNABLE_ID', run_id);
-    setenv('MT_SBD_TUNABLE_ID', run_id);
+    setappdata(0, 'MC_SBD_TUNABLE_ID', run_id);
+    setenv('MC_SBD_TUNABLE_ID', run_id);
 
     repo_root = fileparts(fileparts(mfilename('fullpath')));
     tun_dir = fullfile(repo_root, 'config', 'runtime_tunables');

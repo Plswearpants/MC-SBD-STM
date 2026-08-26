@@ -4,7 +4,7 @@ function [log, data, params, meta, cfg] = initProliferationReal(log, data, param
 %   [log, data, params, meta, cfg] = initProliferationReal(log, data, params, meta, cfg)
 %
 %   This wrapper encapsulates the "Block 3: Find Most Isolated Points and
-%   Initialize Kernels" logic from historical/real/hist_MTSBD_block_realdata1.m, with
+%   Initialize Kernels" logic from historical/real/hist_MCSBD_block_realdata1.m, with
 %   the most-isolated-points AUTO mode treated as retired. It:
 %       - previews the K1...Kn kernel ordering on the reference slice
 %       - resolves kernel centers (reference centers or manual selection)

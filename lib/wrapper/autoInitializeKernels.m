@@ -2,7 +2,7 @@ function [data, params] = autoInitializeKernels(log, data, params, varargin)
 %AUTOINITIALIZEKERNELS Automatically initialize kernels from ground truth activations
 %
 %   Finds most isolated activation points and initializes kernels at those
-%   positions. Works directly on synthetic data without running MT-SBD first.
+%   positions. Works directly on synthetic data without running MC-SBD first.
 %
 %   [data, params] = autoInitializeKernels(log, data, params, ...)
 %

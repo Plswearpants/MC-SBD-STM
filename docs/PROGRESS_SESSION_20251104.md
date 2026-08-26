@@ -117,8 +117,8 @@ clearvars param1 param2
 #### Symptoms:
 - **In save functions**: `char(fullfile(...))` created 2D char array:
   ```matlab
-  ans(:,:,1) = 'C:\Users\...\MT-SBD-STM\tests\NewProject_005'
-  ans(:,:,2) = 'C:\Users\...\MT-SBD-STM\tests\_LOGfile.txt  '
+  ans(:,:,1) = 'C:\Users\...\MC-SBD-STM\tests\NewProject_005'
+  ans(:,:,2) = 'C:\Users\...\MC-SBD-STM\tests\_LOGfile.txt  '
   ```
 
 #### Solutions Applied:

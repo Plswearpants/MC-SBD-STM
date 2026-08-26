@@ -1,4 +1,4 @@
-%This script runs MT_SBD on synthetic data
+%This script runs MC_SBD on synthetic data
 clc; clear;
 
 % Import Manopt and initialize the SBD package
@@ -104,7 +104,8 @@ params.A0 = A0;
 %% Run and save 
 % 2. The fun part
 %[Aout, Xout, bout, extras] = SBD_test_multi(Y, kernel_size, params, dispfun, A1, initial_iteration, maxIT);
-[Aout, Xout, bout, extras] = SBD_test_multi_demixing(Y, kernel_sizes, params, dispfun, A1, initial_iteration, maxIT);
+% SBD_test_multi_demixing was a broken solvers leftover (deleted). Use MCSBD_synthetic instead.
+[Aout, Xout, bout, extras] = MCSBD_synthetic(Y, kernel_sizes, params, dispfun, A1, initial_iteration, maxIT);
 
 % Save the result
 % Generate a unique filename for the work space

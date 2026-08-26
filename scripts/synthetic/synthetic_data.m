@@ -1,4 +1,4 @@
-%  TRUNK SCRIPT: Synthetic Data MT-SBD-STM Analysis
+%  TRUNK SCRIPT: Synthetic Data MC-SBD-STM Analysis
 %  ========================================================================
 %  Multi-kernel Tensor Shifted Blind Deconvolution for Scanning Tunneling 
 %  Microscopy synthetic data generation, processing, and visualization.
@@ -8,7 +8,7 @@
 %
 %  Author: Dong Chen
 %  Created: 2025-10-27
-%  Project: MT-SBD-STM
+%  Project: MC-SBD-STM
 %
 %  WORKFLOW OVERVIEW (THREE-PHASE STRUCTURE):
 %  ===========================================
@@ -72,7 +72,7 @@ for i = 1:numel(seeds)
     if ~isempty(repo_root); break; end
 end
 if isempty(repo_root)
-    error(['Could not locate init_sbd.m. cd to the MT-SBD-STM repo ', ...
+    error(['Could not locate init_sbd.m. cd to the MC-SBD-STM repo ', ...
         '(or a subfolder), save this script to disk if unsaved, then re-run. ', ...
         'Tried: %s'], strjoin(tried, ' | '));
 end
@@ -216,7 +216,7 @@ end
 %  =========================================================================
 %  Edited by Dong Chen, 2025-10-28
 %
-%  Runs the MT-SBD algorithm on the reference slice to find optimal
+%  Runs the MC-SBD algorithm on the reference slice to find optimal
 %  activation maps and refine kernel estimates. This provides the starting
 %  point for multi-slice analysis.
 %
@@ -425,11 +425,11 @@ clearvars kernel_centers target_sizes_slice s k
 %  =========================================================================
 %  Edited by Dong Chen, 2025-10-27
 %
-%  Runs MT-SBD on all energy slices simultaneously, using the reference
+%  Runs MC-SBD on all energy slices simultaneously, using the reference
 %  slice activation as initialization. This leverages 3D convolution for
 %  efficient multi-slice processing.
 %
-%  Dependencies: MTSBD_synthetic_all_slice.m, convfft3.m
+%  Dependencies: MCSBD_synthetic_all_slice.m, convfft3.m
 
 % -------------------------------------------------------------------------
 % PRESETS: User-configurable parameters
@@ -455,7 +455,7 @@ end
 LOGcomment = sprintf("Init from ref: %d, maxIT=%d", use_reference_init, maxIT_allslice);
 LOGcomment = logUsedBlocks(log.path, log.file, "DA01A", LOGcomment, 0);
 
-fprintf('Running MT-SBD decomposition on all %d slices...\n', params.num_slices);
+fprintf('Running MC-SBD decomposition on all %d slices...\n', params.num_slices);
 
 % Prepare kernel sizes and observation
 kernel_sizes_used = squeeze(max(params.kernel_sizes, [], 1));
@@ -522,7 +522,7 @@ end
 
 % Run all-slice decomposition
 tic;
-[Aout_slice, Xout_slice, bout_slice, slice_extras] = MTSBD_synthetic_all_slice(...
+[Aout_slice, Xout_slice, bout_slice, slice_extras] = MCSBD_synthetic_all_slice(...
     Y_used, kernel_sizes_used, params_allslice, dispfun_allslice, A1_used, initial_iteration, maxIT_allslice);
 allslice_time = toc;
 
@@ -706,7 +706,7 @@ LOGcomment = "=== Synthetic Data Analysis Complete ===";
 LOGcomment = logUsedBlocks(log.path, log.file, "DONE ", LOGcomment, 0);
 
 fprintf('========================================\n');
-fprintf('MT-SBD-STM Analysis Complete!\n');
+fprintf('MC-SBD-STM Analysis Complete!\n');
 fprintf('========================================\n');
 fprintf('Results saved in: %s\n', pwd);
 fprintf('Log file: %s_log.file.txt\n\n', log.file);

@@ -5,7 +5,7 @@ function update_config(config_file, param_path, new_value, new_file_name)
 %
 %   When NEW_FILE_NAME is provided it must resolve to an absolute path.
 %   Bare/relative names are rewritten under <repo>/config/runtime_tunables/.
-%   If MT_SBD_TUNABLE_ID is set (registerTunableRun), generic
+%   If MC_SBD_TUNABLE_ID is set (registerTunableRun), generic
 %   Xsolve/Asolve_config_tunable.mat names gain a _<run_id> suffix.
 
     if nargin < 3

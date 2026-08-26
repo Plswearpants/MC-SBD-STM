@@ -34,16 +34,16 @@ function env = hist_activate_run_environment(run_dir, varargin)
         repo_root = parent;
     end
     if isempty(shared_input_dir)
-        shared_input_dir = getenv('MT_SBD_ALL_INPUTS_DIR');
+        shared_input_dir = getenv('MC_SBD_ALL_INPUTS_DIR');
     end
     if isempty(shared_input_dir) || ~exist(shared_input_dir, 'dir')
         shared_input_dir = fullfile(repo_root, 'runtime', 'all_inputs');
     end
 
-    setappdata(0, 'MT_SBD_RUN_ENV', run_dir);
-    setenv('MT_SBD_RUN_ENV', run_dir);
-    setappdata(0, 'MT_SBD_ALL_INPUTS_DIR', shared_input_dir);
-    setenv('MT_SBD_ALL_INPUTS_DIR', shared_input_dir);
+    setappdata(0, 'MC_SBD_RUN_ENV', run_dir);
+    setenv('MC_SBD_RUN_ENV', run_dir);
+    setappdata(0, 'MC_SBD_ALL_INPUTS_DIR', shared_input_dir);
+    setenv('MC_SBD_ALL_INPUTS_DIR', shared_input_dir);
 
     cd(run_dir);
     addpath(repo_root);
