@@ -9,18 +9,17 @@ function dataset_metrics = loadMetricDataset_new(mode)
         error('mode must be 1 (N_obs axis) or 2 (side_length_ratio axis).');
     end
     
-    % Prefer canonical artifact root; fall back to examples/ (legacy).
-    repo_root = fileparts(fileparts(fileparts(mfilename('fullpath')))); % .../lib|Dong_func/phase_space -> repo
-    if ~exist(fullfile(repo_root, 'init_sbd.m'), 'file')
-        repo_root = fileparts(fileparts(mfilename('fullpath')));
-    end
-    default_path = fullfile(repo_root, 'artifacts', 'synthetic');
-    if ~isfolder(default_path)
-        default_path = fullfile(repo_root, 'examples', 'results');
-    end
-    if ~isfolder(default_path)
-        default_path = fullfile(pwd, 'examples');
-    end
+    % Prefer store/phase_space; fall back to paper freeze, then legacy folders.
+    paths = repo_payload_paths(fileparts(mfilename('fullpath')));
+    path_candidates = { ...
+        paths.phase_datasets, ...
+        paths.phase_parallel, ...
+        paths.phase_metrics, ...
+        paths.paper_freeze_phase, ...
+        fullfile(paths.repo_root, 'synthetic results'), ...
+        fullfile(paths.repo_root, 'examples', 'results') ...
+        };
+    default_path = first_existing_dir(path_candidates, pwd);
     folder_path = uigetdir(default_path, 'Select folder containing SBD results');
     if folder_path == 0
         error('Folder selection canceled by user');

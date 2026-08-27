@@ -24,7 +24,7 @@ function [meta] = createProjectStructure(varargin)
 %           .project_prefix - Prefix used for project naming
 %
 %   FOLDER STRUCTURE CREATED (Nested Structure):
-%       \MC-SBD-STM\projects\synthetic_<timestamp>\
+%       \MC-SBD-STM\run entrance\projects\synthetic_<timestamp>\
 %           ├─ auto\                        (dataset folder for auto initialization)
 %           │  ├─ auto.mat                  (dataset file)
 %           │  ├─ auto_LOGfile.txt          (dataset log file)
@@ -98,7 +98,8 @@ function [meta] = createProjectStructure(varargin)
     if isempty(project_root)
         % Use UI to select project root directory
         fprintf('Select project root directory...\n');
-        default_path = pwd;
+        paths = repo_payload_paths(fileparts(mfilename('fullpath')));
+        default_path = first_existing_dir({paths.projects}, pwd);
         project_root = uigetdir(default_path, 'Select Project Root Directory');
         
         if isequal(project_root, 0)

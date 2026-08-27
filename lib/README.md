@@ -1,16 +1,5 @@
-# Domain library (`lib/`)
+# `lib/`
 
-Formerly `Dong_func/`. Domain helpers for STM I/O, synthetic generation, metrics, visualization, and workflow wrappers.
+Solvers, STM helpers, and trunk wrappers. How to run the package: root [`README.md`](../README.md).
 
-| Subfolder | Role |
-|-----------|------|
-| `wrapper/` | Trunk orchestration façades (real + synthetic) |
-| `phase_space/` | Parameter-space metrics and heatmaps |
-| `basic/` | Logging helpers (`logUsedBlocks`, `setLogFile`) |
-| `data_preprocessing/` | Legacy streak/defect helpers |
-| `colormap/` | Saved colormap `.mat` assets |
-
-Stack movies: `writePixelVideo` writes a native-resolution (pixel-to-pixel) video along dim 3 with energy labels.
-
-Solver configs: use `utils/update_config.m` only (duplicate removed).
-Bootstrapping: `init_sbd` addpaths this tree.
+`init_sbd` addpaths this tree (`lib/utils` first). Solver templates are edited only through `lib/utils/update_config.m`.

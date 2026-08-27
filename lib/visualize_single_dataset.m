@@ -1,6 +1,7 @@
 function visualize_single_dataset()
     % Let user select the folder containing both parallel results and synthetic dataset
-    default_path = fullfile(pwd, 'examples');
+    paths = repo_payload_paths(fileparts(mfilename('fullpath')));
+    default_path = first_existing_dir({paths.phase_parallel, paths.phase_datasets}, pwd);
     folder_path = uigetdir(default_path, 'Select folder containing results');
     
     if folder_path == 0

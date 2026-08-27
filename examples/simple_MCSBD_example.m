@@ -65,7 +65,7 @@ log = struct('path', '', 'file', '');
 % When the bundled example exists, this cell skips so a full-file run stays
 % deterministic (use LD01A). Set force_generate = true to create a new draw.
 
-force_generate = true;
+force_generate = false;
 
 if ~exist('repo_root', 'var') || isempty(repo_root)
     error('GD01A needs S0 first (repo_root / example_dataset_mat).');
@@ -86,20 +86,7 @@ else
     params.synGen.vis_generation = false;
     params.synGen.normalization_type = 'dynamic';
 
-    ldos_default = fullfile(repo_root, 'examples', 'example_data', ...
-        'LDoS_single_defects_self=0.3.mat');
-    if exist(ldos_default, 'file')
-        params.synGen.LDoS_path = ldos_default;
-    else
-        [ldos_file, ldos_dir] = uigetfile( ...
-            {'*.mat', 'LDoS MAT-files (*.mat)'}, ...
-            'Select LDoS simulation .mat', ...
-            fullfile(repo_root, 'examples'));
-        if isequal(ldos_file, 0)
-            error('LDoS file is required to generate the 2D synthetic slice.');
-        end
-        params.synGen.LDoS_path = fullfile(ldos_dir, ldos_file);
-    end
+    params.synGen.LDoS_path = resolve_ldos_path('');
 
     fprintf('Generating 2D synthetic observation (num_slices=1)...\n');
     [data, params] = generateSyntheticData(log, params);

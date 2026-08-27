@@ -3,7 +3,8 @@ function [metrics] = load_parallel_results()
     metrics = struct();
     
     % Get folder path from user
-    default_path = fullfile(pwd, 'examples');
+    paths = repo_payload_paths(fileparts(mfilename('fullpath')));
+    default_path = first_existing_dir({paths.phase_parallel, paths.phase_datasets}, pwd);
     folder_path = uigetdir(default_path, 'Select folder containing SBD parallel results');
     
     if folder_path == 0  % User canceled

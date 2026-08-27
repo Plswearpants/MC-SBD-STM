@@ -54,11 +54,9 @@ function [Y, rho_single_resized_noisy, X_upsampled, params] = properGenObservati
     % Handle data loading
     if isempty(rho_single)
         if isempty(LDoS_path)
-            [filename, pathname] = uigetfile({'*.mat'}, 'Select LDoS Result File');
-            if isequal(filename, 0)
-                error('No file selected');
-            end
-            LDoS_path = fullfile(pathname, filename);
+            LDoS_path = resolve_ldos_path('');
+        else
+            LDoS_path = resolve_ldos_path(LDoS_path);
         end
         
         try

@@ -19,7 +19,7 @@ function [Y, A0_noiseless, A0, X0, SNR, params] = generateSyntheticSTMData(varar
     SNR = p.Results.SNR;
     theta_cap = p.Results.theta_cap;
     interactive_selection = p.Results.interactive_selection;
-    LDoS_path = p.Results.LDoS_path;
+    LDoS_path = resolve_ldos_path(p.Results.LDoS_path);
     
     % Validate inputs
     validateattributes(num_kernels, {'numeric'}, {'positive', 'integer', 'scalar'});

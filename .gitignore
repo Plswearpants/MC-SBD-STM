@@ -1,51 +1,55 @@
-# MATLAB generated files
+# MATLAB editor / codegen
 *.asv
 *.m~
-*.mat
 *.fig
 slprj/
 *.slxc
 
-# Results and data directories
-examples/results/
-artifacts/
-*.pptx
-tests/
-projects/
-session/
-submission/
-# STM grid data files
+# Binary data (paper movies/figs are the exception; paper .mat stay local)
+*.mat
 *.3ds
-# System files
-.DS_Store
-Thumbs.db
+*.mp4
+*.pptx
 
-# Editor temporary files
-*.swp
-*~
+# Payload trees — not uploaded
+/store/**
+!/store/README.md
+/run entrance/inputs/
+/run entrance/projects/
+/run entrance/Final result/
+/projects/
+/tests/
+/session/
+/artifacts/
+/experimental data/
+/synthetic results/
+/submission/
+/examples/results/
+/results/
 
-# Log files
+# Paper movies and plotting scripts may be uploaded; .mat freeze files
+# exceed GitHub's 100 MB limit (several are >1 GB) and stay local.
+!/paper/**/*.mp4
+!/paper/**/*.fig
+
+# Solver templates (code, not experiment payloads)
+!/config/*.mat
+!/config/legacy/**
+!/core/*.mat
+/config/runtime_tunables/
+!/config/runtime_tunables/README.md
+/config/worker_configs/
+
+# Logs / session clutter
 *.log
 *_LOGfile.txt
 log.txt
 ALL_SLICE_RUN_DONE.txt
-
-# Session / runtime clutter
 session*.mat
 matlab_workspace.mat
-config/runtime_tunables/
-!config/runtime_tunables/README.md
-config/worker_configs/
 
-# Specific directories to ignore
-results/synthetic_datasets/
-results/parallel results/
-
-# But keep these specific files/folders
-!examples/example_data/LDoS_sim.mat
-!examples/example_data/LDoS_single_defects_self=0.6_save.mat
-!examples/example_data/LDoS_single_defect_save.mat
-!examples/example_data/simple_mcsbd_2d/simple_mcsbd_2d.mat
-!config/*.mat
-!config/legacy/**
-!core/*.mat
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*~

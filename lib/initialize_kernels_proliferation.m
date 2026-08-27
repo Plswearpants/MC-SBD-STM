@@ -117,35 +117,19 @@ function [A1, A1_crop] = initialize_kernels_proliferation(Y, num_kernels, kernel
             % Delete the center dot and close figure
             delete(h_dot);
             close(fig);
+            
+            y1 = max(1, min(img_height, y1));
+            y2 = max(1, min(img_height, y2));
+            x1 = max(1, min(img_width, x1));
+            x2 = max(1, min(img_width, x2));
+            selected_kernel = Y(y1:y2, x1:x2);
         else
-            % Use target kernel size without interactive adjustment
+            % Use target kernel size without interactive adjustment.
+            % If the window hangs off the image, zero-fill the missing sides
+            % so the activation stays at the intended center.
             kernel_sizes(n,:) = target_kernel_size(n,:);
-            
-            % Calculate region boundaries
-            half_height = floor(target_kernel_size(n,1)/2);
-            half_width = floor(target_kernel_size(n,2)/2);
-            
-            y1 = max(1, center_y - half_height);
-            y2 = min(img_height, center_y + half_height);
-            x1 = max(1, center_x - half_width);
-            x2 = min(img_width, center_x + half_width);
+            selected_kernel = extract_kernel_patch_padded(Y, center_y, center_x, kernel_sizes(n,:));
         end
-        
-        % Extract region
-        selected_kernel = Y(y1:y2, x1:x2);
-        % Ensure selected_kernel matches target_kernel_size
-        current_size = size(selected_kernel);
-        target_size = target_kernel_size(n,:); % [height, width]
-
-        % Pad if too small
-        pad_height = max(0, target_size(1) - current_size(1));
-        pad_width  = max(0, target_size(2) - current_size(2));
-        if pad_height > 0 || pad_width > 0
-            selected_kernel = padarray(selected_kernel, [pad_height, pad_width], 'replicate', 'post');
-        end
-
-        % Crop if too large
-        selected_kernel = selected_kernel(1:target_size(1), 1:target_size(2));
         
         A1_crop{n} = selected_kernel;
         
@@ -156,6 +140,34 @@ function [A1, A1_crop] = initialize_kernels_proliferation(Y, num_kernels, kernel
         
         fprintf('Kernel %d initialized at center (%d,%d) with size [%d,%d]\n', ...
             n, center_y, center_x, kernel_sizes(n,1), kernel_sizes(n,2));
+    end
+end
+
+function patch = extract_kernel_patch_padded(Y, center_y, center_x, ksize)
+    %EXTRACT_KERNEL_PATCH_PADDED Crop a ksize window around (center_y, center_x).
+    %   Out-of-image rows/cols are zeros so a boundary activation stays at
+    %   the intended kernel center.
+    kH = ksize(1);
+    kW = ksize(2);
+    patch = zeros(kH, kW);
+    [img_height, img_width] = size(Y);
+    y0 = center_y - floor((kH - 1) / 2);
+    x0 = center_x - floor((kW - 1) / 2);
+    src_y1 = max(1, y0);
+    src_y2 = min(img_height, y0 + kH - 1);
+    src_x1 = max(1, x0);
+    src_x2 = min(img_width, x0 + kW - 1);
+    if src_y1 > src_y2 || src_x1 > src_x2
+        return;
+    end
+    dst_y1 = src_y1 - y0 + 1;
+    dst_y2 = src_y2 - y0 + 1;
+    dst_x1 = src_x1 - x0 + 1;
+    dst_x2 = src_x2 - x0 + 1;
+    patch(dst_y1:dst_y2, dst_x1:dst_x2) = Y(src_y1:src_y2, src_x1:src_x2);
+    if y0 < 1 || (y0 + kH - 1) > img_height || x0 < 1 || (x0 + kW - 1) > img_width
+        fprintf('  Kernel at (%d,%d): zero-padded sides that fall outside the image.\n', ...
+            center_y, center_x);
     end
 end
 

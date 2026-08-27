@@ -38,7 +38,9 @@ function [data, params, isolation_results] = findIsolatedPoints(log, data, param
 %       each kernel to serve as initialization centers for 3D processing:
 %       1. Detects defects above threshold in reference activation maps
 %       2. Calculates isolation scores (distance to other-kernel defects)
-%       3. Filters boundary points and selects most isolated point per kernel
+%       3. Prefers interior points (full kernel fits). If none, keeps the
+%          highest isolation score even when it sits on the boundary; IP01A
+%          then zero-pads the clipped sides of the kernel crop.
 %       4. Aligns with ground truth and prepares kernel sizes for 3D
 %
 %   EXAMPLE:
@@ -120,6 +122,7 @@ function [data, params, isolation_results] = findIsolatedPoints(log, data, param
     isolation_scores = cell(1, params.num_kernels);
     defect_positions = cell(1, params.num_kernels);
     num_defects = zeros(1, params.num_kernels);
+    boundary_padded = false(1, params.num_kernels);
     
     % Analyze activation value distributions
     if show_distributions
@@ -190,7 +193,18 @@ function [data, params, isolation_results] = findIsolatedPoints(log, data, param
             half_kernel_size = floor(target_kernel_sizes(k,:) / 2);
         end
         
-        % Filter out points too close to boundaries
+        % Isolation scores for every defect (min squared distance to others)
+        S_k_all = zeros(num_defects(k), 1);
+        if isempty(other_positions)
+            S_k_all(:) = Inf;
+        else
+            for i = 1:num_defects(k)
+                diffs = other_positions - defect_positions{k}(i,:);
+                S_k_all(i) = min(sum(diffs.^2, 2));
+            end
+        end
+        
+        % Prefer centers where the full kernel window fits in the image
         valid_points = true(num_defects(k), 1);
         for i = 1:num_defects(k)
             y = defect_positions{k}(i,1);
@@ -202,30 +216,31 @@ function [data, params, isolation_results] = findIsolatedPoints(log, data, param
             end
         end
         
-        % Process valid points
-        valid_defects = defect_positions{k}(valid_points,:);
-        if isempty(valid_defects)
-            error('No valid isolated points for kernel %d - all too close to boundaries', k);
+        if any(valid_points)
+            candidate_idx = find(valid_points);
+            [max_score, rel_idx] = max(S_k_all(valid_points));
+            max_idx = candidate_idx(rel_idx);
+            isolation_scores{k} = S_k_all(valid_points);
+        else
+            % All peaks sit too close to the edge: keep the most isolated
+            % one and let IP01A zero-pad the clipped kernel sides.
+            [max_score, max_idx] = max(S_k_all);
+            isolation_scores{k} = S_k_all;
+            boundary_padded(k) = true;
+            warning(['Kernel %d: no interior isolated points (all too close ', ...
+                'to boundaries). Using highest isolation score at (%d,%d); ', ...
+                'kernel crop will be zero-padded.'], ...
+                k, defect_positions{k}(max_idx,1), defect_positions{k}(max_idx,2));
         end
-        
-        % Calculate isolation scores (distance to nearest other-kernel defect)
-        S_k = zeros(size(valid_defects, 1), 1);
-        for i = 1:size(valid_defects, 1)
-            diffs = other_positions - valid_defects(i,:);
-            distances = sum(diffs.^2, 2);
-            S_k(i) = min(distances);
-        end
-        
-        % Find most isolated point
-        [max_score, max_idx] = max(S_k);
-        valid_indices = find(valid_points);
-        max_idx = valid_indices(max_idx);
         
         most_isolated_points{k} = defect_positions{k}(max_idx,:);
-        isolation_scores{k} = S_k;
         
-        fprintf('    Kernel %d: Most isolated at (%d,%d), score=%.2f\n', ...
-            k, most_isolated_points{k}(1), most_isolated_points{k}(2), max_score);
+        pad_tag = '';
+        if boundary_padded(k)
+            pad_tag = ' [boundary pad]';
+        end
+        fprintf('    Kernel %d: Most isolated at (%d,%d), score=%.2f%s\n', ...
+            k, most_isolated_points{k}(1), most_isolated_points{k}(2), max_score, pad_tag);
     end
     
     % Visualize isolation analysis
@@ -356,8 +371,8 @@ function [data, params, isolation_results] = findIsolatedPoints(log, data, param
     fprintf('  Found %d isolated points for 3D initialization.\n', params.num_kernels);
     
     % LOG: Isolation results
-    LOGcomment = sprintf("Found %d isolated points, Defects per kernel: %s", ...
-        params.num_kernels, mat2str(num_defects));
+    LOGcomment = sprintf("Found %d isolated points, Defects per kernel: %s, boundary-padded kernels: %s", ...
+        params.num_kernels, mat2str(num_defects), mat2str(find(boundary_padded)));
     LOGcomment = logUsedBlocks(log.path, log.file, "  ^  ", LOGcomment, 0);
     
     % Return isolation_results struct for backward compatibility
@@ -365,6 +380,7 @@ function [data, params, isolation_results] = findIsolatedPoints(log, data, param
     isolation_results.kernel_centers = kernel_centers;
     isolation_results.num_defects = num_defects;
     isolation_results.isolation_scores = isolation_scores;
+    isolation_results.boundary_padded = boundary_padded;
     
     % Convert params to hierarchical structure for storage
     params = organizeParams(params, 'write');

@@ -70,7 +70,7 @@ function [Y, A0_noiseless, X0, params] = properGen_full(varargin)
     p.addRequired('N_obs');
     p.addRequired('observation_resolution');
     p.addRequired('defect_density');
-    p.addParameter('LDoS_path', 'example_data/LDoS_sim.mat');
+    p.addParameter('LDoS_path', '');
     p.addParameter('num_slices', 3);
     p.addParameter('vis', false);
     p.parse(varargin{:});
@@ -80,7 +80,7 @@ function [Y, A0_noiseless, X0, params] = properGen_full(varargin)
     N_obs = p.Results.N_obs;
     p_scale = p.Results.observation_resolution;
     rho_d = p.Results.defect_density;
-    LDoS_path = p.Results.LDoS_path;
+    LDoS_path = resolve_ldos_path(p.Results.LDoS_path);
     num_slices = p.Results.num_slices;
     vis = p.Results.vis;
     

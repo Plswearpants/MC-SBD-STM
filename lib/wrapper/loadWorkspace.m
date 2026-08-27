@@ -101,7 +101,9 @@ function [log, data, params, meta] = loadWorkspace(varargin)
     if isempty(workspace_file)
         % Use file browser to select .mat file
         fprintf('Select workspace .mat file to load...\n');
-        [filename, pathname] = uigetfile('*.mat', title_text, pwd);
+        paths = repo_payload_paths(fileparts(mfilename('fullpath')));
+        start_dir = first_existing_dir({paths.projects, paths.syn_datasets}, pwd);
+        [filename, pathname] = uigetfile('*.mat', title_text, start_dir);
         if isequal(filename, 0)
             error('No file selected. Load cancelled.');
         end

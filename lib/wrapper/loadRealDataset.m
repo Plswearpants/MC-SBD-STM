@@ -11,7 +11,7 @@ function [log, data, params, meta, cfg] = loadRealDataset(log, data, params, met
 %       - Stores results under data.real and params.real
 %
 %   Project/checkpoint creation and logging are handled at the script level
-%   (see historical/real/hist_run_real_data.m and docs/script_standardization.md).
+%   (see historical/real/hist_run_real_data.m).
 %
 %   Inputs:
 %       log, data, params, meta, cfg  - pipeline structs (may be empty)
@@ -34,8 +34,21 @@ function [log, data, params, meta, cfg] = loadRealDataset(log, data, params, met
 
     % If data_file is missing or empty, allow interactive selection
     if ~isfield(cfg.load, "data_file") || isempty(cfg.load.data_file)
+        paths = repo_payload_paths(fileparts(mfilename('fullpath')));
+        sample = '';
+        if isfield(cfg, 'io') && isfield(cfg.io, 'sample') && ~isempty(cfg.io.sample)
+            sample = char(cfg.io.sample);
+        end
+        start_dir = paths.real_raw;
+        if ~isempty(sample)
+            sample_dir = fullfile(paths.real_raw, sample);
+            if isfolder(sample_dir)
+                start_dir = sample_dir;
+            end
+        end
+        start_dir = first_existing_dir({start_dir, paths.real_raw}, pwd);
         [f, p] = uigetfile({'*.3ds','Nanonis 3DS files (*.3ds)'}, ...
-                           'Select real-data .3ds file');
+                           'Select real-data .3ds file', start_dir);
         if isequal(f, 0)
             error('No .3ds file selected.');
         end

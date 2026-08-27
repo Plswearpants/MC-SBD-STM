@@ -8,9 +8,9 @@ function [] = init_sbd( mode, setdefconfig )
 %       setdefconfig - whether to apply default config settings.
 %           Default: true.
 %
-%   Adds to path: repo root, core/, utils/, config/, lib/ (or Dong_func/),
-%   solvers/, historical/solvers/, vendor/, colormap/, and
-%   scripts/{real,synthetic,phase_space}/.
+%   Adds to path: repo root, config/, lib/ (and subdirs, with lib/utils
+%   first), historical/solvers/, 3rd party/, and
+%   run entrance/scripts/{real,synthetic,phase_space,tool}/.
 
     if nargin < 1;  mode = 'verbose';       end
     if nargin < 2;  setdefconfig = true;    end
@@ -20,48 +20,53 @@ function [] = init_sbd( mode, setdefconfig )
         error('Manopt needs to be imported: <a href="http://www.manopt.org">http://www.manopt.org</a>.%s','');
     end
 
-    fp = [fileparts(mfilename('fullpath')) '/'];
+    fp = fileparts(mfilename('fullpath'));
     addpath(fp);
 
-    for d = {'core', 'utils', 'config'}
-        addpath(genpath([fp d{1}]));
+    addIfDir(fullfile(fp, 'config'), true);
+
+    libdir = fullfile(fp, 'lib');
+    if isfolder(libdir)
+        addpath(genpath(libdir));
+        % Prefer lib/utils over any same-named file elsewhere on the path.
+        addIfDir(fullfile(libdir, 'utils'), false, '-begin');
+    elseif isfolder(fullfile(fp, 'Dong_func'))
+        addpath(genpath(fullfile(fp, 'Dong_func')));
     end
 
-    % Domain library: prefer lib/ after rename; fall back to Dong_func/.
-    if isfolder([fp 'lib'])
-        addpath(genpath([fp 'lib']));
-    elseif isfolder([fp 'Dong_func'])
-        addpath(genpath([fp 'Dong_func']));
+    addIfDir(fullfile(fp, 'historical', 'solvers'), false);
+
+    if isfolder(fullfile(fp, '3rd party'))
+        addpath(genpath(fullfile(fp, '3rd party')));
+    else
+        addIfDir(fullfile(fp, 'vendor'), true);
     end
 
-    if isfolder([fp 'solvers'])
-        addpath(genpath([fp 'solvers']));
+    scripts_root = fullfile(fp, 'run entrance', 'scripts');
+    if ~isfolder(scripts_root)
+        scripts_root = fullfile(fp, 'scripts');
     end
-
-    if isfolder([fp 'historical' filesep 'solvers'])
-        addpath([fp 'historical' filesep 'solvers']);
+    if isfolder(scripts_root)
+        addIfDir(fullfile(scripts_root, 'real'), false);
+        addIfDir(fullfile(scripts_root, 'synthetic'), false);
+        addIfDir(fullfile(scripts_root, 'phase_space'), false);
+        addIfDir(fullfile(scripts_root, 'tool'), false);
     end
-
-    if isfolder([fp 'vendor'])
-        addpath(genpath([fp 'vendor']));
-    end
-
-    if isfolder([fp 'colormap'])
-        addpath(genpath([fp 'colormap']));
-    end
-
-    if isfolder([fp 'scripts'])
-        addpath([fp 'scripts' filesep 'real']);
-        addpath([fp 'scripts' filesep 'synthetic']);
-        addpath([fp 'scripts' filesep 'phase_space']);
-    end
-
-    % Ensure utils/update_config wins over any lib shim.
-    addpath([fp 'utils'], '-begin');
 
     if setdefconfig;    default_config_settings(mode);  end
 
     if ~strcmp(mode, 'quiet')
         disp('Subdirectories and config settings initialized.');
+    end
+end
+
+function addIfDir(p, with_genpath, varargin)
+    if ~isfolder(p)
+        return;
+    end
+    if with_genpath
+        addpath(genpath(p), varargin{:});
+    else
+        addpath(p, varargin{:});
     end
 end

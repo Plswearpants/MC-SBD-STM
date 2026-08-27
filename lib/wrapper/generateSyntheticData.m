@@ -18,9 +18,9 @@ function [data, params] = generateSyntheticData(log, params)
 %       .observation_resolution - Pixels per lattice site
 %       .defect_density     - Surface defect density (0-1)
 %       .num_slices         - Number of energy slices
-%       .LDoS_path          - Path to LDoS data file
 %
 %       OPTIONAL (have defaults):
+%       .LDoS_path          - Path to LDoS data file ([] = store/synthetic/ldos)
 %       .vis_generation     - Show intermediate steps (default: false)
 %       .normalization_type - 'dynamic' or 'static' (default: 'dynamic')
 %       .ref_slice          - Reference slice number (default: [] for interactive)
@@ -45,7 +45,7 @@ function [data, params] = generateSyntheticData(log, params)
 %       params.synGen.SNR = 5;
 %       params.synGen.N_obs = 50;
 %       params.synGen.num_slices = 2;
-%       params.synGen.LDoS_path = 'LDoS_single_defects_self=0.6_save.mat';
+%       params.synGen.LDoS_path = '';  % resolves store/synthetic/ldos
 %       [data, params] = generateSyntheticData(log, params);
 %       Y = data.synGen.Y;
 %       A0 = data.synGen.A0;
@@ -67,7 +67,7 @@ function [data, params] = generateSyntheticData(log, params)
     
     % Read required parameters from params struct (all required, no defaults)
     required_fields = {'SNR', 'N_obs', 'observation_resolution', 'defect_density', ...
-                       'num_slices', 'LDoS_path'};
+                       'num_slices'};
     for i = 1:length(required_fields)
         field = required_fields{i};
         if ~isfield(params, field)
@@ -77,6 +77,10 @@ function [data, params] = generateSyntheticData(log, params)
             error('Parameter "%s" cannot be empty.', field);
         end
     end
+    if ~isfield(params, 'LDoS_path') || isempty(params.LDoS_path)
+        params.LDoS_path = '';
+    end
+    params.LDoS_path = resolve_ldos_path(params.LDoS_path);
     
     % Validate required parameters
     if ~isnumeric(params.SNR) || params.SNR <= 0
@@ -96,6 +100,9 @@ function [data, params] = generateSyntheticData(log, params)
     end
     if ~ischar(params.LDoS_path) && ~isstring(params.LDoS_path)
         error('LDoS_path must be a string');
+    end
+    if exist(params.LDoS_path, 'file') ~= 2
+        error('LDoS file not found: %s', params.LDoS_path);
     end
     
     % Read optional parameters with defaults

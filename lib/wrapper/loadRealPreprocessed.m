@@ -62,8 +62,28 @@ function [log, data, params, meta, cfg] = loadRealPreprocessed(log, data, params
         if isempty(all_inputs_dir) && isappdata(0, 'MC_SBD_ALL_INPUTS_DIR')
             all_inputs_dir = getappdata(0, 'MC_SBD_ALL_INPUTS_DIR');
         end
+
         if isempty(all_inputs_dir) || ~exist(all_inputs_dir, 'dir')
-            all_inputs_dir = pwd;
+            paths = repo_payload_paths(fileparts(mfilename('fullpath')));
+            sample_date = '';
+            if isfield(cfg, 'io') && isfield(cfg.io, 'sample_date')
+                sample_date = char(cfg.io.sample_date);
+            end
+            sample = '';
+            if isfield(cfg, 'io') && isfield(cfg.io, 'sample')
+                sample = char(cfg.io.sample);
+            end
+            if ~isempty(sample) && ~isempty(sample_date)
+                processed_folder = [sample '_' sample_date];
+            else
+                processed_folder = sample_date;
+            end
+            dated = fullfile(paths.real_processed, processed_folder);
+            if ~isempty(processed_folder) && exist(dated, 'dir')
+                all_inputs_dir = dated;
+            else
+                all_inputs_dir = first_existing_dir({paths.real_processed}, pwd);
+            end
         end
 
         [selected_name, selected_path] = uigetfile({'*.mat', 'MAT-files (*.mat)'}, ...
