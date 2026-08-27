@@ -165,7 +165,8 @@ function [data, params] = decomposeReferenceSlice(log, data, params, varargin)
         dispfun = cell(1, params.num_kernels);
         for n = 1:params.num_kernels
             dispfun{n} = @(Y, A, X, kernel_sizes, kplus) ...
-                showims(data.Y_ref, data.A_init{n}, data.X0_ref(:,:,n), A, X, kernel_sizes, kplus, 1);
+                showims(data.Y_ref, data.A_init{n}, data.X0_ref(:,:,n), A, X, kernel_sizes, kplus, 1, ...
+                    sbd_image_cmap('synthetic'));
         end
     else
         dispfun = cell(1, params.num_kernels);

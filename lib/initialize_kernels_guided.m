@@ -52,7 +52,7 @@ function A1 = initialize_kernels_guided(Y, GT_kernels, num_kernels, kernel_sizes
         ax_obs = subplot('Position', [0.05, 0.1, 0.5, 0.8]);
         imagesc(Y);
         colorbar;
-        colormap(gray);
+        colormap(sbd_image_cmap('synthetic'));
         axis square;
         title(sprintf('SELECT Kernel %d of %d (Position rectangle, double-click to confirm)', ...
               n, num_kernels), 'FontWeight', 'bold', 'FontSize', 14);
@@ -70,7 +70,7 @@ function A1 = initialize_kernels_guided(Y, GT_kernels, num_kernels, kernel_sizes
             gt_axes{k} = subplot('Position', [0.65, y_pos, 0.28, kernel_height * 0.85]);
             imagesc(GT_kernels{k});
             colorbar;
-            colormap(gray);
+            colormap(sbd_image_cmap('synthetic'));
             axis square;
             
             % Title and appearance based on whether this is the current kernel

@@ -239,7 +239,7 @@ function inspect_dataset_heatmap_unified(dataset_metrics, snr_value, metric_type
         extras.demixing_matrix = overlap_matrix;
         fig_before = get(0, 'Children');
         visualizeResults(Y, A0_noiseless, Aout, X0, Xout, bout, extras);
-        apply_bone_colormap_to_new_nonactivation_figures(fig_before);
+        apply_synthetic_colormaps_to_new_figures(fig_before);
         plot_input_gt_output_kernels(A0, A0_noiseless, Aout);
 
         fprintf('\nSelected dataset:\n');
@@ -318,19 +318,19 @@ function plot_input_gt_output_kernels(A_in, A_gt, A_out)
 
         nexttile((k-1)*3 + 1);
         imagesc(in_img); axis image off;
-        caxis([cmin, cmax]); colormap(gca, bone(256));
+        caxis([cmin, cmax]); colormap(gca, sbd_image_cmap('synthetic'));
         title(sprintf('Input noisy K%d', k));
         colorbar;
 
         nexttile((k-1)*3 + 2);
         imagesc(gt_img); axis image off;
-        caxis([cmin, cmax]); colormap(gca, bone(256));
+        caxis([cmin, cmax]); colormap(gca, sbd_image_cmap('synthetic'));
         title(sprintf('GT K%d', k));
         colorbar;
 
         nexttile((k-1)*3 + 3);
         imagesc(out_img); axis image off;
-        caxis([cmin, cmax]); colormap(gca, bone(256));
+        caxis([cmin, cmax]); colormap(gca, sbd_image_cmap('synthetic'));
         title(sprintf('Output K%d', k));
         colorbar;
     end
@@ -456,7 +456,7 @@ function plot_residual_kernel_maps(in_res, out_res)
             caxis([-clim_abs, clim_abs]);
             title(sprintf('Input residual K%d', k));
         end
-        colormap(gca, bone(256));
+        colormap(gca, sbd_image_cmap('synthetic'));
 
         nexttile(nk + k);
         if isempty(out_res{k})
@@ -468,14 +468,14 @@ function plot_residual_kernel_maps(in_res, out_res)
             caxis([-clim_abs, clim_abs]);
             title(sprintf('Output residual K%d', k));
         end
-        colormap(gca, bone(256));
+        colormap(gca, sbd_image_cmap('synthetic'));
     end
     cb = colorbar;
     cb.Layout.Tile = 'east';
     ylabel(cb, 'Residual intensity');
 end
 
-function apply_bone_colormap_to_new_nonactivation_figures(fig_before)
+function apply_synthetic_colormaps_to_new_figures(fig_before)
     fig_after = get(0, 'Children');
     if isempty(fig_after)
         return;
@@ -484,6 +484,8 @@ function apply_bone_colormap_to_new_nonactivation_figures(fig_before)
     if isempty(new_figs)
         return;
     end
+    synMap = sbd_image_cmap('synthetic');
+    synFtMap = sbd_image_cmap('synthetic_ft');
     for i = 1:numel(new_figs)
         f = new_figs(i);
         if ~ishandle(f) || ~strcmp(get(f, 'Type'), 'figure')
@@ -494,7 +496,7 @@ function apply_bone_colormap_to_new_nonactivation_figures(fig_before)
             fig_name = lower(char(get(f, 'Name')));
         catch
         end
-        % Keep activation figures unchanged; apply bone to observation/kernel views.
+        % Keep activation figures unchanged; bone on real-space, invbone on FT/QPI.
         if ~isempty(strfind(fig_name, 'activation')) %#ok<STREMP>
             continue;
         end
@@ -504,7 +506,18 @@ function apply_bone_colormap_to_new_nonactivation_figures(fig_before)
             if isprop(ax, 'Tag') && strcmpi(get(ax, 'Tag'), 'Colorbar')
                 continue;
             end
-            colormap(ax, bone(256));
+            ax_title = '';
+            try
+                ax_title = lower(char(get(get(ax, 'Title'), 'String')));
+            catch
+            end
+            blob = [fig_name, ' ', ax_title];
+            if ~isempty(strfind(blob, 'qpi')) || ~isempty(strfind(blob, 'q-space')) ...
+                    || ~isempty(strfind(blob, 'fft')) %#ok<STREMP>
+                colormap(ax, synFtMap);
+            else
+                colormap(ax, synMap);
+            end
         end
     end
 end

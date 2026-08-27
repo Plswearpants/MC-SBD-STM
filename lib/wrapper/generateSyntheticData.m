@@ -153,7 +153,7 @@ function [data, params] = generateSyntheticData(log, params)
     if isempty(params.ref_slice_input)
         % Interactive selection
         figure('Name', 'Generated 3D Data');
-        d3gridDisplay(Y, params.normalization_type);
+        d3gridDisplay(Y, params.normalization_type, 'bone');
         title('Select a reference slice for initial decomposition');
         
         params.ref_slice = input('Enter reference slice number: ');
@@ -188,7 +188,7 @@ function [data, params] = generateSyntheticData(log, params)
     colorbar;
     title(sprintf('Reference Slice %d', params.ref_slice));
     axis square;
-    colormap(gray);
+    colormap(sbd_image_cmap('synthetic'));
     
     % Organize outputs into data and params structs
     % DATA struct: Store flat internally (will convert to hierarchical at end)

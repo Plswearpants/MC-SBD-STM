@@ -11,7 +11,7 @@ function [A0, A0_noiseless, kernel_params] = selectKernelsInteractive(LDoS_sim)
 
     % Display the 3D LDoS data for selection
     fprintf('Displaying 3D LDoS simulation data...\n');
-    d3gridDisplay(LDoS_sim, 'dynamic');
+    d3gridDisplay(LDoS_sim, 'dynamic', 'bone');
     title('LDoS Simulation Data - Use for Kernel Selection');
 
     % Get user input for kernel selection

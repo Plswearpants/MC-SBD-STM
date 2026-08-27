@@ -25,9 +25,9 @@ function [Y_rec,Y_rec_split]= visualizeRealResult(Y_ref, A_ref, X_ref, b_ref, ex
     
     Y_res = Y-Y_rec;
 
-    % Define colormaps
-    grayMap = gray;
-    invgray = flipud(grayMap);
+    % Real data: gray real-space, invgray FT/QPI.
+    grayMap = sbd_image_cmap('real');
+    qpiMap = sbd_image_cmap('real_ft');
     
     % 1. Original vs Reconstructed vs Residual (1x3 plot)
     figure('Name', 'Image Comparison');
@@ -87,7 +87,7 @@ function [Y_rec,Y_rec_split]= visualizeRealResult(Y_ref, A_ref, X_ref, b_ref, ex
     subplot(2, num_kernels + 1, num_kernels + 2);
     imagesc(Q_Y_avg);
     ax5 = gca;
-    colormap(ax5, invgray);
+    colormap(ax5, qpiMap);
     title('Q-space (Original)');
     colorbar;
     axis image;
@@ -109,7 +109,7 @@ function [Y_rec,Y_rec_split]= visualizeRealResult(Y_ref, A_ref, X_ref, b_ref, ex
         subplot(2, num_kernels + 1, num_kernels+ k + 2);
         imagesc(Q_kernel_avg);
         ax7 = gca;
-        colormap(ax7, invgray);
+        colormap(ax7, qpiMap);
         title(['Q-space (Kernel ' num2str(k) ')']);
         colorbar;
         axis image;

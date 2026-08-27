@@ -1,5 +1,5 @@
 function Y_reconstructed = visualizeResults(Y, A0, Aout, X0, Xout, bout, extras, indices)
-    % Visualize results from SBD-STM reconstruction
+    % Visualize synthetic SBD-STM reconstruction (bone; FT/QPI uses invbone).
     %
     % Inputs:
     %   Y: Original observation
@@ -25,9 +25,8 @@ function Y_reconstructed = visualizeResults(Y, A0, Aout, X0, Xout, bout, extras,
         idx_str = sprintf('\nDataset # %d, Parameter Set # %d', indices(1), indices(2));
     end
 
-    % Define colormaps
-    grayMap = gray;
-    invgray = flipud(grayMap);
+    % Synthetic data: bone real-space (real-data visualizer uses gray).
+    synMap = sbd_image_cmap('synthetic');
 
     % 2. Kernel Quality Analysis (using QPI patterns)
     fprintf('\nAnalyzing Kernel Quality with QPI Patterns:\n');
@@ -71,7 +70,7 @@ function Y_reconstructed = visualizeResults(Y, A0, Aout, X0, Xout, bout, extras,
     subplot(121);
     imagesc(Y);
     ax1 = gca;
-    colormap(ax1, grayMap);
+    colormap(ax1, synMap);
     title(['Original Image']);
     colorbar;
     axis image;
@@ -79,7 +78,7 @@ function Y_reconstructed = visualizeResults(Y, A0, Aout, X0, Xout, bout, extras,
     subplot(122);
     imagesc(Y_reconstructed);
     ax2 = gca;
-    colormap(ax2, grayMap);
+    colormap(ax2, synMap);
     title(['Reconstructed Image']);
     colorbar;
     axis image;

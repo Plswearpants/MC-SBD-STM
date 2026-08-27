@@ -148,7 +148,7 @@ function [Y, A0_noiseless, X0, params] = properGen_full(varargin)
     disp('Displaying full dataset. Use slider to review all slices.');
     disp('Close the display window when ready to proceed with slice selection.');
     figure;
-    d3gridDisplay(rho_single, 'dynamic');
+    d3gridDisplay(rho_single, 'dynamic', 'bone');
     
     % Handle slice selection
     total_slices = size(rho_single, 3);
@@ -383,12 +383,12 @@ function [Y, A0_noiseless, X0, params] = properGen_full(varargin)
         figure('Name', 'Generated Observation');
         imagesc(Y);
         axis square;
-        colormap(gray);
+        colormap(sbd_image_cmap('synthetic'));
         colorbar;
         title('Generated 2D observation (1 energy slice)');
     else
         figure('Name', '3D Observation');
-        d3gridDisplay(Y, 'dynamic');
+        d3gridDisplay(Y, 'dynamic', 'bone');
         title('3D View of Generated Observation');
     end
 end

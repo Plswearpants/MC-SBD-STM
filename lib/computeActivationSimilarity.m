@@ -102,21 +102,22 @@ function visualizeSimilarityAnalysis(X0, Xout, X0_filtered, Xout_filtered, ...
         axis square;
         
         % Filtered maps
+        synMap = sbd_image_cmap('synthetic');
         subplot(num_kernels,4,base_idx + 2);
         imagesc(X0_filtered);
         title(sprintf('K%d: Filtered X0', k));
-        colorbar; axis square;
+        colorbar; axis square; colormap(gca, synMap);
         
         subplot(num_kernels,4,base_idx + 3);
         imagesc(Xout_filtered);
         title(sprintf('K%d: Filtered Xout', k));
-        colorbar; axis square;
+        colorbar; axis square; colormap(gca, synMap);
         
         % Difference
         subplot(num_kernels,4,base_idx + 4);
         imagesc(X0_filtered - Xout_filtered);
         title(sprintf('K%d: Diff\nSim=%.3f', k, similarity));
-        colorbar; axis square;
+        colorbar; axis square; colormap(gca, synMap);
 
         sgtitle(['Activation Similarity Analysis' idx_str]);
     end

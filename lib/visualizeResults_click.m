@@ -102,7 +102,7 @@ function Y_reconstructed = visualizeResults_click(Y, Aout, X0, Xout, bout, plot_
     imagesc(Y);
     axis image off;
     caxis([y_min y_max]);
-    colormap(gca, gray);
+    colormap(gca, sbd_image_cmap('synthetic'));
     colorbar;
     title('Observation');
 
@@ -110,7 +110,7 @@ function Y_reconstructed = visualizeResults_click(Y, Aout, X0, Xout, bout, plot_
     imagesc(Y_reconstructed);
     axis image off;
     caxis([y_min y_max]);
-    colormap(gca, gray);
+    colormap(gca, sbd_image_cmap('synthetic'));
     colorbar;
     title('Reconstructed Observation');
 
@@ -130,7 +130,7 @@ function Y_reconstructed = visualizeResults_click(Y, Aout, X0, Xout, bout, plot_
         imagesc(Y_per_kernel(:,:,k));
         axis image off;
         caxis([y_min y_max]);
-        colormap(gca, gray);
+        colormap(gca, sbd_image_cmap('synthetic'));
         colorbar;
         title(sprintf('Y_{rec}^{(%d)} = A_{%d} * X_{%d} + b_{%d}', k, k, k, k), ...
             'Interpreter', 'tex');
@@ -147,7 +147,7 @@ function Y_reconstructed = visualizeResults_click(Y, Aout, X0, Xout, bout, plot_
         subplot(num_kernels, 3, (k-1)*3 + 3);
         imagesc(Aout{k});
         axis image off;
-        colormap(gca, gray);
+        colormap(gca, sbd_image_cmap('synthetic'));
         colorbar;
         title(sprintf('A_{%d}', k), 'Interpreter', 'tex');
     end

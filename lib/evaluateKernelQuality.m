@@ -49,25 +49,27 @@ function quality_factors = evaluateKernelQuality(output_kernels, gt_kernels, do_
         if do_visualization
             % Plot original kernels
             subplot(num_kernels, 4, (k-1)*4 + 1);
+            synMap = sbd_image_cmap('synthetic');
+            synFtMap = sbd_image_cmap('synthetic_ft');
             imagesc(output_kernels{k});
             title(sprintf('Output Kernel %d', k));
-            axis square; colorbar;
+            axis square; colorbar; colormap(gca, synMap);
             
             subplot(num_kernels, 4, (k-1)*4 + 2);
             imagesc(gt_kernels{k});
             title(sprintf('GT Kernel %d', k));
-            axis square; colorbar;
+            axis square; colorbar; colormap(gca, synMap);
             
-            % Plot QPI patterns
+            % Plot QPI patterns (inverse colormap, same convention as invgray)
             subplot(num_kernels, 4, (k-1)*4 + 3);
             imagesc(log(qpi_out + 1));  % log scale for better visualization
             title(sprintf('Output QPI %d (Score: %.3f)', k, score));
-            axis square; colorbar;
+            axis square; colorbar; colormap(gca, synFtMap);
             
             subplot(num_kernels, 4, (k-1)*4 + 4);
             imagesc(log(qpi_gt + 1));   % log scale for better visualization
             title(sprintf('GT QPI %d', k));
-            axis square; colorbar;
+            axis square; colorbar; colormap(gca, synFtMap);
         end
     end
     if do_visualization

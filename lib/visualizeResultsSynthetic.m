@@ -1,5 +1,6 @@
 function [data, viz_info] = visualizeResultsSynthetic(data, params, varargin)
 %VISUALIZERESULTSSYNTHETIC Visualize synthetic all-slice reconstruction results.
+%   Image panels use bone (real-space, extra-blue shadows) and invbone (FT/QPI). Real-data viz stays gray/invgray.
 %
 %   [data, viz_info] = visualizeResultsSynthetic(data, params, ...)
 %
@@ -224,6 +225,8 @@ function [Y_reconstruct, saved_figures, slices_visualized] = runSyntheticVisuali
         kernel_idx = str2double(ddKernel.Value);
         run_data = run_set(param_idx);
 
+        synMap = sbd_image_cmap('synthetic');
+        synFtMap = sbd_image_cmap('synthetic_ft');
         Y_slice = data.synGen.Y(:,:,slice_idx);
         X0 = data.synGen.X0;
         Xout = run_data.X;
@@ -251,12 +254,12 @@ function [Y_reconstruct, saved_figures, slices_visualized] = runSyntheticVisuali
         end
 
         if cbRecon.Value
-            imagesc(axOrig, Y_slice); axis(axOrig, 'image'); colorbar(axOrig); colormap(axOrig, gray);
+            imagesc(axOrig, Y_slice); axis(axOrig, 'image'); colorbar(axOrig); colormap(axOrig, synMap);
             title(axOrig, sprintf('Original (Slice %d)', slice_idx));
-            imagesc(axRecon, Y_slice_recon); axis(axRecon, 'image'); colorbar(axRecon); colormap(axRecon, gray);
+            imagesc(axRecon, Y_slice_recon); axis(axRecon, 'image'); colorbar(axRecon); colormap(axRecon, synMap);
             title(axRecon, sprintf('Reconstructed (Param %d)', param_idx));
             residual = Y_slice - Y_slice_recon;
-            imagesc(axResidual, residual); axis(axResidual, 'image'); colorbar(axResidual);
+            imagesc(axResidual, residual); axis(axResidual, 'image'); colorbar(axResidual); colormap(axResidual, synMap);
             title(axResidual, 'Residual (Original - Reconstructed)');
             recon_mse = mean(residual(:).^2);
             recon_rmse = sqrt(recon_mse);
@@ -276,12 +279,12 @@ function [Y_reconstruct, saved_figures, slices_visualized] = runSyntheticVisuali
         end
 
         if cbAct.Value
-            imagesc(axActX0, filtered_maps(kernel_idx).X0); axis(axActX0, 'image'); colorbar(axActX0);
+            imagesc(axActX0, filtered_maps(kernel_idx).X0); axis(axActX0, 'image'); colorbar(axActX0); colormap(axActX0, synMap);
             title(axActX0, sprintf('K%d Filtered X0', kernel_idx));
-            imagesc(axActXout, filtered_maps(kernel_idx).Xout); axis(axActXout, 'image'); colorbar(axActXout);
+            imagesc(axActXout, filtered_maps(kernel_idx).Xout); axis(axActXout, 'image'); colorbar(axActXout); colormap(axActXout, synMap);
             title(axActXout, sprintf('K%d Filtered Xout', kernel_idx));
             imagesc(axActDiff, filtered_maps(kernel_idx).X0 - filtered_maps(kernel_idx).Xout);
-            axis(axActDiff, 'image'); colorbar(axActDiff);
+            axis(axActDiff, 'image'); colorbar(axActDiff); colormap(axActDiff, synMap);
             title(axActDiff, sprintf('K%d Diff', kernel_idx));
             txtAct.Value = {
                 sprintf('Kernel: %d', kernel_idx)
@@ -301,13 +304,13 @@ function [Y_reconstruct, saved_figures, slices_visualized] = runSyntheticVisuali
 
         if cbQPI.Value
             [qpi_score, qpi_out, qpi_gt] = kernel_QPI_metric(Aout_slice{kernel_idx}, A0_slice{kernel_idx});
-            imagesc(axQpiOutKernel, Aout_slice{kernel_idx}); axis(axQpiOutKernel, 'image'); colorbar(axQpiOutKernel);
+            imagesc(axQpiOutKernel, Aout_slice{kernel_idx}); axis(axQpiOutKernel, 'image'); colorbar(axQpiOutKernel); colormap(axQpiOutKernel, synMap);
             title(axQpiOutKernel, sprintf('Output Kernel K%d', kernel_idx));
-            imagesc(axQpiGtKernel, A0_slice{kernel_idx}); axis(axQpiGtKernel, 'image'); colorbar(axQpiGtKernel);
+            imagesc(axQpiGtKernel, A0_slice{kernel_idx}); axis(axQpiGtKernel, 'image'); colorbar(axQpiGtKernel); colormap(axQpiGtKernel, synMap);
             title(axQpiGtKernel, sprintf('GT Kernel K%d', kernel_idx));
-            imagesc(axQpiOut, log(qpi_out + 1)); axis(axQpiOut, 'image'); colorbar(axQpiOut);
+            imagesc(axQpiOut, log(qpi_out + 1)); axis(axQpiOut, 'image'); colorbar(axQpiOut); colormap(axQpiOut, synFtMap);
             title(axQpiOut, sprintf('Output QPI K%d', kernel_idx));
-            imagesc(axQpiGt, log(qpi_gt + 1)); axis(axQpiGt, 'image'); colorbar(axQpiGt);
+            imagesc(axQpiGt, log(qpi_gt + 1)); axis(axQpiGt, 'image'); colorbar(axQpiGt); colormap(axQpiGt, synFtMap);
             title(axQpiGt, sprintf('GT QPI K%d', kernel_idx));
             lblStatus.Text = sprintf('Updated: Slice %d | Param %d | Kernel %d | QPI Score %.4f', ...
                 slice_idx, param_idx, kernel_idx, qpi_score);
@@ -378,20 +381,21 @@ function [Y_slice_reconstruct, saved_figures] = renderSyntheticSelection(...
     end
 
     if show_reconstruction
+        synMap = sbd_image_cmap('synthetic');
         figure('Name', sprintf('Original vs Reconstructed (Slice %d, Param %d)', slice_idx, param_idx));
         subplot(1,2,1);
         imagesc(Y_slice);
         axis image;
         colorbar;
         title('Original Image');
-        colormap(gray);
+        colormap(gca, synMap);
 
         subplot(1,2,2);
         imagesc(Y_slice_reconstruct);
         axis image;
         colorbar;
         title('Reconstructed Image');
-        colormap(gray);
+        colormap(gca, synMap);
         sgtitle(sprintf('Slice %d, Parameter Set %d', slice_idx, param_idx));
         saved_figures = saveMaybe(saved_figures, save_figures, figure_dir, ...
             sprintf('%s_slice%02d_param%02d_reconstruction.fig', figure_prefix, slice_idx, param_idx));

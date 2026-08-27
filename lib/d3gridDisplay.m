@@ -1,7 +1,12 @@
-function d3gridDisplay(LDoS_noisy, rangeType, use_invgray)
+function d3gridDisplay(LDoS_noisy, rangeType, cmap_spec)
 % Displays a 3D dataset using a specified colormap and range type.
-%   d3gridDisplay(LDoS_noisy, rangeType, use_invgray)
-%   use_invgray: optional, if -1 uses invgray, otherwise uses gray (default: 0)
+%   d3gridDisplay(LDoS_noisy, rangeType, cmap_spec)
+%   cmap_spec:
+%     omitted / 0     -> gray (real-data default)
+%     -1              -> invgray (real FT / QPI)
+%     'bone'          -> synthetic real-space (extra-blue shadows)
+%     'invbone'       -> synthetic FT / QPI
+%     Nx3 matrix      -> custom LUT
 %   This function visualizes a 3D dataset by converting each slice to an image 
 %   using a colormap and either a global or dynamic range. The processed slices 
 %   are then displayed as a 3D image stack.
@@ -9,7 +14,7 @@ function d3gridDisplay(LDoS_noisy, rangeType, use_invgray)
 % Arguments:
 %   LDoS_noisy  3D array containing the data to be displayed.
 %   rangeType   Type of range for visualization ('global' or 'dynamic').
-%   use_invgray Optional, if -1 uses invgray, otherwise uses gray (default: 0).
+%   cmap_spec   Optional: 0/gray, -1/invgray, 'bone', 'invbone', or N-by-3.
 %
 % Returns:
 %   None. The function displays the 3D dataset as an image stack.
@@ -20,8 +25,8 @@ function d3gridDisplay(LDoS_noisy, rangeType, use_invgray)
 %   d3gridDisplay_QPISIM(LDoS_noisy, 'global');
 %   This example displays the dataset with a global intensity range across slices.
 
-if nargin < 3 || isempty(use_invgray)
-    use_invgray = 0;
+if nargin < 3 || isempty(cmap_spec)
+    cmap_spec = 0;
 end
 
 % Validate and heal input data
@@ -31,12 +36,7 @@ LDoS_noisy = dataHealing(LDoS_noisy);
 % Normalize data to a reasonable range [0,1]
 LDoS_noisy = normalizeData(LDoS_noisy);
 
-% Load colormap
-if use_invgray == -1
-    map = flipud(gray);
-else
-    map = gray;
-end
+map = resolve_d3_colormap(cmap_spec);
 
 % Determine global min and max values if global range is selected
 if strcmp(rangeType, 'global')
@@ -166,4 +166,48 @@ function validateData(data)
     minVal = min(data(:));
     maxVal = max(data(:));
     fprintf('Data range: [%g, %g]\n', minVal, maxVal);
+end
+
+function map = resolve_d3_colormap(spec)
+    if isempty(spec)
+        map = sbd_image_cmap('real');
+        return
+    end
+    if isnumeric(spec)
+        if isscalar(spec)
+            if spec == -1
+                map = sbd_image_cmap('real_ft');
+            else
+                map = sbd_image_cmap('real');
+            end
+            return
+        end
+        if size(spec, 2) == 3
+            map = spec;
+            return
+        end
+    end
+    if ischar(spec) || (isstring(spec) && isscalar(spec))
+        name = lower(strtrim(char(spec)));
+        switch name
+            case {'gray', 'grey', 'real'}
+                map = sbd_image_cmap('real');
+            case {'invgray', 'invertedgray', 'real_ft', 'real_qpi'}
+                map = sbd_image_cmap('real_ft');
+            case {'bone', 'synthetic', 'syn'}
+                map = sbd_image_cmap('synthetic');
+            case {'invbone', 'bone_inv', 'synthetic_ft', 'synthetic_qpi'}
+                map = sbd_image_cmap('synthetic_ft');
+            case {'imola'}
+                map = sbd_image_cmap('imola');
+            case {'invimola', 'imola_inv'}
+                map = sbd_image_cmap('invimola');
+            otherwise
+                error('d3gridDisplay:unknownColormap', ...
+                    'Unknown colormap ''%s''. Use gray, invgray, bone, or invbone.', name);
+        end
+        return
+    end
+    error('d3gridDisplay:unknownColormap', ...
+        'cmap_spec must be 0, -1, a name (gray/invgray/bone/invbone), or an N-by-3 matrix.');
 end

@@ -156,7 +156,7 @@ function [data, params] = initializeKernelsRef(log, data, params)
             title(sprintf('Initial Kernel %d', n));
             colorbar;
             axis square;
-            colormap(gray);
+            colormap(sbd_image_cmap('synthetic'));
         end
         sgtitle(sprintf('Initialized Kernels (Reference Slice %d)', params.ref_slice));
     end

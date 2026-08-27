@@ -363,7 +363,7 @@ figure('Name', 'IP01A: Initialized Kernels (Reference Slice)');
 for k = 1:params.num_kernels
     subplot(1, params.num_kernels, k);
     imagesc(A1_all{params.ref_slice, k});
-    colormap(gray);
+    colormap(sbd_image_cmap('synthetic'));
     colorbar;
     title(sprintf('Initialized Kernel %d', k));
     axis square;
@@ -469,7 +469,8 @@ if show_allslice_progress
     dispfun_allslice = cell(1, num_kernels_allslice);
     for n = 1:num_kernels_allslice
         dispfun_allslice{n} = @(Y, A, X, kernel_sizes, kplus) ...
-            showims(Y_used, A1_used{n}, data.synGen.X0_ref(:,:,n), A, X, kernel_sizes, kplus, 1);
+            showims(Y_used, A1_used{n}, data.synGen.X0_ref(:,:,n), A, X, kernel_sizes, kplus, 1, ...
+                sbd_image_cmap('synthetic'));
     end
 else
     dispfun_allslice = cell(1, num_kernels_allslice);

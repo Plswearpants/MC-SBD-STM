@@ -108,7 +108,7 @@ function [Y, rho_single_resized_noisy, X_upsampled, params] = properGenObservati
     disp('Displaying full dataset. Use slider to review all slices.');
     disp('Close the display window when ready to proceed with slice selection.');
     figure;
-    d3gridDisplay(rho_single, 'dynamic');
+    d3gridDisplay(rho_single, 'dynamic', 'bone');
     
     % Handle slice selection
     total_slices = size(rho_single, 3);

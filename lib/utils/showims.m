@@ -1,9 +1,14 @@
-function showims(Y, A0, X0, A, X, k, kplus, idx)
+function showims(Y, A0, X0, A, X, k, kplus, idx, cmap)
 %SHOWIMS    Show images after each iteration, with square subplots and minimal margins.
 %   Optimized for speed using persistent handles, tiledlayout, and direct CData updates.
 %   Requires MATLAB R2019b+ for tiledlayout.
+%   Optional cmap: colormap matrix (default gray for real data; pass bone for synthetic).
 
     persistent fig_handle img_handles
+
+    if nargin < 9 || isempty(cmap)
+        cmap = sbd_image_cmap('real');
+    end
     
     % Compute data
     A = reshape(A, [k size(Y,3)]);
@@ -55,7 +60,7 @@ function showims(Y, A0, X0, A, X, k, kplus, idx)
         img_handles(6) = imagesc(abs(X_hat));
         axis image off; title('X̂ (Est. Activation)');
         
-        colormap(fig_handle, "gray");
+        colormap(fig_handle, cmap);
     else
         % Subsequent calls: only update image data (fast!)
         set(img_handles(1), 'CData', Y(:,:,idx));
@@ -64,6 +69,7 @@ function showims(Y, A0, X0, A, X, k, kplus, idx)
         set(img_handles(4), 'CData', Y_hat);              % Recovered observation (updates)
         set(img_handles(5), 'CData', abs(A(:,:,idx)));    % Current estimated kernel (updates)
         set(img_handles(6), 'CData', abs(X_hat));         % Current estimated activation (updates)
+        colormap(fig_handle, cmap);
     end
     
     drawnow limitrate;  % Fast update with rate limiting

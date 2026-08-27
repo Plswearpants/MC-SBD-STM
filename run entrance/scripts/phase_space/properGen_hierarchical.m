@@ -47,7 +47,7 @@ N = loaded_ldos.N;
 % Display the 3D LDoS data for selection
 fprintf('Displaying 3D LDoS simulation data...\n');
 figure;
-d3gridDisplay(LDoS_sim, 'dynamic');
+d3gridDisplay(LDoS_sim, 'dynamic', 'bone');
 title('LDoS Simulation Data - Use for Kernel Selection');
 
 % Get user input for kernel slice selection
@@ -354,7 +354,7 @@ for n = 1:length(unique_N_obs)
     
     % Create new figure for this N_obs
     figure('Name', sprintf('Synthetic Observations N_obs=%d', unique_N_obs(n)));
-    d3gridDisplay(all_obs_N, 'dynamic');
+    d3gridDisplay(all_obs_N, 'dynamic', 'bone');
     title(sprintf('N_{obs} = %d (%d datasets)', unique_N_obs(n), N_current));
 end
 

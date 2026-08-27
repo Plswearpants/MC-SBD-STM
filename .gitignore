@@ -26,7 +26,7 @@ slprj/
 /submission/
 /examples/results/
 /results/
-
+/config/
 # Paper movies and plotting scripts may be uploaded; .mat freeze files
 # exceed GitHub's 100 MB limit (several are >1 GB) and stay local.
 !/paper/**/*.mp4
