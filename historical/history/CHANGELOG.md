@@ -5,10 +5,11 @@ Do not rewrite earlier rows unless correcting an error.
 
 Columns: `Date`, `Type`, `Component`, `Change`, `Caller Migration`, `Legacy Recovery`.
 
-Older topic-by-topic tables (repo reorg, payload move, per-trunk bugfixes) sit in [`archive/`](archive/). Line-by-line payload MOVE log: [`payload_migration_log.txt`](payload_migration_log.txt).
+Older topic-by-topic tables (repo reorg, payload move, per-trunk bugfixes) sit in [`archive/`](archive/) (local only; not on GitHub). Line-by-line payload MOVE log: [`payload_migration_log.txt`](payload_migration_log.txt) (local only).
 
 | Date | Type | Component | Change | Caller Migration | Legacy Recovery |
 | --- | --- | --- | --- | --- | --- |
+| 2026-08-27 | Update | `local-only templates + reorg docs` | Solver `.mat` templates and reorg notes stay on disk only: untracked `config/*.mat`, `config/legacy/**`, `historical/docs/**`, `historical/history/archive/**`, `payload_migration_log.txt`. `config/*.m`, living `CHANGELOG.md`, and `hist_*` scripts remain tracked. Templates regenerate via `init_sbd` → `default_config_settings`. | `.gitignore`, `README.md`, `historical/README.md`, `historical/history/CHANGELOG.md` | Files remain under `config/` and `historical/`; recover prior tracking from git history before this commit. |
 | 2026-08-27 | Update | `example freeze gitignore` | Track the bundled 2D MCSBD freeze (`examples/example_data/simple_mcsbd_2d/simple_mcsbd_2d.mat`); it is no longer covered by the global `*.mat` ignore. | `.gitignore`, `README.md` | Drop the `!/examples/.../simple_mcsbd_2d.mat` exception to ignore it again. |
 | 2026-08-27 | Update | `README requirements` | Documented runtime needs after the thesis blurb: MATLAB R2019b+, Manopt on path before `init_sbd`, Image Processing Toolbox, bundled `3rd party/`, gitignored payloads, and optional SPT / PCT / Optimization Toolbox. | `README.md` | Restore the previous README from git history. |
 | 2026-08-27 | Update | `synthetic colormap bone` | Synthetic real-space back to custom `bone` with extra blue in the dark end. FT/QPI uses `invbone`. slanCM `imola` remains available but is not the default. | `lib/colormap/bone.m`, `invbone.m`, `sbd_image_cmap.m`, `d3gridDisplay.m`, `generateSyntheticData.m`, `properGen_full.m`, `properGenObservation.m`, `selectKernelsInteractive.m`, `properGen_hierarchical.m` | `sbd_image_cmap('imola')` or `d3gridDisplay(..., 'imola')` for the previous LUT. Tune shadow blue via `extra` in `bone.m`. |
