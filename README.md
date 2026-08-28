@@ -1,5 +1,7 @@
 # MC-SBD-STM: Multi-channel sparse blind deconvolution using the Riemannian Trust-Region Method (RTRM) on STM images
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Plswearpants/MT-SBD-STM)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22135528.svg)](https://doi.org/10.5281/zenodo.22135528)
+
 
 This is a MATLAB package that performs multi-channel deconvolution, primarily on STM measurements (grid spectroscopy and topography), to recover individual defect kernels and their corresponding sparse activations. This is useful especially in studying the scattering signatures around different species of defects, also known as quasi-particle interference patterns. As sparse blind deconvolution is a nonconvex problem, using RTRM ensures that local minima will be found in the associated optimization objective. This work is inspired by work in Single SBD-STM shown by [Cheung et al (2020)](https://www.nature.com/articles/s41467-020-14633-1), in which they formulated the Single SBD-STM problem. Our algorithm acts on observations with **multi-type defects**, as we observe more than one defect species in most systems, thus making this algorithm the first practical deconvolution algorithm in STM-QPI processing. 
 
