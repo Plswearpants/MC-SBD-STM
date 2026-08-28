@@ -26,7 +26,7 @@ Optional, only for those trunks:
 - **Parallel Computing Toolbox** — phase-space [`run_parallel_dataset.m`](run%20entrance/scripts/phase_space/run_parallel_dataset.m) (`parpool` / `parfor`)
 - **Optimization Toolbox** — Lorentzian Bragg-peak fit in `lorentzianBraggRemove`
 
-## A 2D illustration of the work:
+## A 2D illustration of this work:
 **Script**: [`examples/simple_MCSBD_example.m`](examples/simple_MCSBD_example.m).
 **Demo observation Y**: A 2-kernel demo observation is stored[`examples/example_data/simple_mcsbd_2d/simple_mcsbd_2d.mat`](examples/example_data/simple_mcsbd_2d/). 
 ### Results:  
