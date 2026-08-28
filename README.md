@@ -9,6 +9,23 @@ where $Y$ is the 3D (or 2D) observation, $A_i$ is the i-th channel 3D (or 2D) ke
 
 A full list of detailed information on the algorithm and its physical background can be found in this thesis: [Defect-resolved scattering in quantum materials: a scanning tunneling microscope study with algorithmic multi-channel deconvolution](https://open.library.ubc.ca/soa/cIRcle/collections/ubctheses/24/items/1.0451233)
 
+## Requirements
+
+MATLAB only. Put [Manopt](https://www.manopt.org) on the MATLAB path **before** any script: `init_sbd` checks for `trustregions` and stops if it is missing. Example and trunk scripts then call `init_sbd` in **S0**. Typical Manopt setup: download the toolbox, `cd` into it, run `importmanopt`.
+
+| Need | What | Used for |
+| --- | --- | --- |
+| MATLAB R2019b or later | Desktop MATLAB | Core language and graphics (`tiledlayout`) |
+| Manopt | Install separately; not vendored here | Riemannian trust-region kernel solve (`spherefactory`, `trustregions`) |
+| Image Processing Toolbox | MATLAB toolbox | Synthetic generation (`imresize`), display (`mat2gray`), interactive ROIs (`drawrectangle`) |
+| Bundled third-party code | Already in [`3rd party/`](3rd%20party/) | slanCM, imshow3D, mat2im — `init_sbd` addpaths these |
+
+Optional, only for those trunks:
+
+- **Signal Processing Toolbox** — Nanonis load (`load3dsall` → `gaussfilter1d`); Gaussian/Kaiser kernel windows
+- **Parallel Computing Toolbox** — phase-space [`run_parallel_dataset.m`](run%20entrance/scripts/phase_space/run_parallel_dataset.m) (`parpool` / `parfor`)
+- **Optimization Toolbox** — Lorentzian Bragg-peak fit in `lorentzianBraggRemove`
+
 ## A 2D illustration of the work:
 **Script**: [`examples/simple_MCSBD_example.m`](examples/simple_MCSBD_example.m).
 **Demo observation Y**: A 2-kernel demo observation is stored[`examples/example_data/simple_mcsbd_2d/simple_mcsbd_2d.mat`](examples/example_data/simple_mcsbd_2d/). 

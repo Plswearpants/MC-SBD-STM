@@ -7,6 +7,7 @@ slprj/
 
 # Binary data (paper movies/figs are the exception; paper .mat stay local)
 *.mat
+!/examples/example_data/simple_mcsbd_2d/simple_mcsbd_2d.mat
 *.3ds
 *.mp4
 *.pptx
