@@ -1,0 +1,213 @@
+function d3gridDisplay(LDoS_noisy, rangeType, cmap_spec)
+% Displays a 3D dataset using a specified colormap and range type.
+%   d3gridDisplay(LDoS_noisy, rangeType, cmap_spec)
+%   cmap_spec:
+%     omitted / 0     -> gray (real-data default)
+%     -1              -> invgray (real FT / QPI)
+%     'bone'          -> synthetic real-space (extra-blue shadows)
+%     'invbone'       -> synthetic FT / QPI
+%     Nx3 matrix      -> custom LUT
+%   This function visualizes a 3D dataset by converting each slice to an image 
+%   using a colormap and either a global or dynamic range. The processed slices 
+%   are then displayed as a 3D image stack.
+%
+% Arguments:
+%   LDoS_noisy  3D array containing the data to be displayed.
+%   rangeType   Type of range for visualization ('global' or 'dynamic').
+%   cmap_spec   Optional: 0/gray, -1/invgray, 'bone', 'invbone', or N-by-3.
+%
+% Returns:
+%   None. The function displays the 3D dataset as an image stack.
+%
+% August 2024 - Dong Chen
+%
+% Example:
+%   d3gridDisplay_QPISIM(LDoS_noisy, 'global');
+%   This example displays the dataset with a global intensity range across slices.
+
+if nargin < 3 || isempty(cmap_spec)
+    cmap_spec = 0;
+end
+
+% Validate and heal input data
+validateData(LDoS_noisy);
+LDoS_noisy = dataHealing(LDoS_noisy);
+
+% Normalize data to a reasonable range [0,1]
+LDoS_noisy = normalizeData(LDoS_noisy);
+
+map = resolve_d3_colormap(cmap_spec);
+
+% Determine global min and max values if global range is selected
+if strcmp(rangeType, 'global')
+    globalMin = 0;  % Since we normalized the data
+    globalMax = 1;
+end
+
+% Preallocate the sliced LDoS array
+slicedglob_LDoS = zeros(size(LDoS_noisy, 1), size(LDoS_noisy, 2), size(LDoS_noisy, 3), 3);
+
+% nos number of standard deviations for dynamic range, larger nos more range.
+nos = 8;  % Reduced from 8 to handle normalized data better
+
+% Convert LDoS_result to image format using the colormap
+for k = 1:size(LDoS_noisy, 3)
+    if strcmp(rangeType, 'dynamic')
+        validData = LDoS_noisy(:,:,k);
+        validData = validData(~isnan(validData) & ~isinf(validData));
+        if ~isempty(validData)
+            MeddIdV = median(validData(:));
+            Stdv = std(validData(:));
+            range = [max(min(validData(:)), MeddIdV-nos*Stdv) min(max(validData(:)), MeddIdV+nos*Stdv)];
+        else
+            range = [0 1];
+        end
+    else
+        range = [globalMin globalMax];
+    end
+    
+    % Get the current slice
+    currentSlice = LDoS_noisy(:,:,k);
+    
+    % Ensure values are within [0,1] range
+    currentSlice = min(max(currentSlice, 0), 1);
+    
+    % Convert to image
+    slicedglob_LDoS(:,:,k,:) = mat2im(currentSlice, map, range);
+end
+
+% Display the 3D image stack
+imshow3D(slicedglob_LDoS);
+
+end
+
+function data = normalizeData(data)
+    % Normalize data to [0,1] range
+    minVal = min(data(:));
+    maxVal = max(data(:));
+    
+    % Check if range is valid
+    if minVal == maxVal
+        warning('Data has no variation (constant values)');
+        data = zeros(size(data));
+    else
+        data = (data - minVal) / (maxVal - minVal);
+    end
+    
+    fprintf('Data normalized to range: [0, 1]\n');
+end
+
+function data = dataHealing(data)
+    % Data healing function to handle anomalies
+    
+    % Replace Inf values with NaN
+    data(isinf(data)) = NaN;
+    
+    % Replace complex numbers with NaN
+    if ~isreal(data)
+        data(imag(data) ~= 0) = NaN;
+    end
+    
+    % For each slice, replace NaN values with interpolated values
+    for k = 1:size(data, 3)
+        slice = data(:,:,k);
+        if any(isnan(slice(:)))
+            % Get valid values for interpolation
+            validValues = slice(~isnan(slice));
+            if ~isempty(validValues)
+                validMean = mean(validValues, 'all');
+                % Replace NaN with the mean of valid values in the slice
+                slice(isnan(slice)) = validMean;
+            else
+                % If entire slice is NaN, set to zero
+                slice(:) = 0;
+                warning('Slice %d contained all NaN values, set to zero', k);
+            end
+            data(:,:,k) = slice;
+        end
+    end
+    
+    fprintf('Data healing completed.\n');
+    % Report final data range
+    fprintf('Healed data range: [%g, %g]\n', min(data(:)), max(data(:)));
+end
+
+function validateData(data)
+    % Input data validation function
+    
+    % Check for empty or wrong dimensionality
+    if isempty(data)
+        error('Input data is empty');
+    end
+    % MATLAB drops a trailing singleton, so HxW x 1 is stored as 2-D.
+    % Treat that as a one-slice stack (size(data,3)==1).
+    if ~isnumeric(data) || ndims(data) > 3 || size(data, 1) < 2 || size(data, 2) < 2
+        error('Input data must be a 2-D image or a 3-D image stack');
+    end
+    
+    % Check for NaN values
+    nanCount = sum(isnan(data(:)));
+    if nanCount > 0
+        warning('Data contains %d NaN values', nanCount);
+    end
+    
+    % Check for Inf values
+    infCount = sum(isinf(data(:)));
+    if infCount > 0
+        warning('Data contains %d Infinite values', infCount);
+    end
+    
+    % Check for complex numbers
+    if ~isreal(data)
+        warning('Data contains complex numbers');
+    end
+    
+    % Report data range
+    minVal = min(data(:));
+    maxVal = max(data(:));
+    fprintf('Data range: [%g, %g]\n', minVal, maxVal);
+end
+
+function map = resolve_d3_colormap(spec)
+    if isempty(spec)
+        map = sbd_image_cmap('real');
+        return
+    end
+    if isnumeric(spec)
+        if isscalar(spec)
+            if spec == -1
+                map = sbd_image_cmap('real_ft');
+            else
+                map = sbd_image_cmap('real');
+            end
+            return
+        end
+        if size(spec, 2) == 3
+            map = spec;
+            return
+        end
+    end
+    if ischar(spec) || (isstring(spec) && isscalar(spec))
+        name = lower(strtrim(char(spec)));
+        switch name
+            case {'gray', 'grey', 'real'}
+                map = sbd_image_cmap('real');
+            case {'invgray', 'invertedgray', 'real_ft', 'real_qpi'}
+                map = sbd_image_cmap('real_ft');
+            case {'bone', 'synthetic', 'syn'}
+                map = sbd_image_cmap('synthetic');
+            case {'invbone', 'bone_inv', 'synthetic_ft', 'synthetic_qpi'}
+                map = sbd_image_cmap('synthetic_ft');
+            case {'imola'}
+                map = sbd_image_cmap('imola');
+            case {'invimola', 'imola_inv'}
+                map = sbd_image_cmap('invimola');
+            otherwise
+                error('d3gridDisplay:unknownColormap', ...
+                    'Unknown colormap ''%s''. Use gray, invgray, bone, or invbone.', name);
+        end
+        return
+    end
+    error('d3gridDisplay:unknownColormap', ...
+        'cmap_spec must be 0, -1, a name (gray/invgray/bone/invbone), or an N-by-3 matrix.');
+end
