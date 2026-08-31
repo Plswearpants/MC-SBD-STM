@@ -1,5 +1,5 @@
 # MC-SBD-STM: Multi-channel sparse blind deconvolution using the Riemannian Trust-Region Method (RTRM) on STM images
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Plswearpants/MT-SBD-STM)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Plswearpants/MC-SBD-STM)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22135528.svg)](https://doi.org/10.5281/zenodo.22135528)
 
 
