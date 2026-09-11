@@ -3,7 +3,11 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22135528.svg)](https://doi.org/10.5281/zenodo.22135528)
 
 
-This is a MATLAB package that performs multi-channel deconvolution, primarily on STM measurements (grid spectroscopy and topography), to recover individual defect kernels and their corresponding sparse activations. This is useful especially in studying the scattering signatures around different species of defects, also known as quasi-particle interference patterns. As sparse blind deconvolution is a nonconvex problem, using RTRM ensures that local minima will be found in the associated optimization objective. Inspired by [this work](https://www.nature.com/articles/s41467-020-14633-1), this algorithm acts on observations with **multi-type defects**, as we observe more than one defect species in most systems, thus making this algorithm the first practical deconvolution algorithm in STM-QPI processing. 
+A MATLAB package that performs multi-channel deconvolution end-to-end, primarily on STM measurements (grid spectroscopy and topography), to recover individual defect kernels and their corresponding sparse activations. This is primarily applied to study the scattering signatures around different species of defects and to recover defect-resolved quasiparticle interference(QPI) patterns. 
+
+This package enables pre-processing of experimental grid spectroscopy, running the MC-SBD algorithm on standard processed grids, and visualizing the output defect-resolved QPIs. It also equips a synthetic data generation-processing-visualization pipeline to validate this algorithm against generated ground truth; the validation pipeline confirms that the MC-SBD algorithm  
+
+As sparse blind deconvolution is a nonconvex problem, using RTRM ensures that local minima will be found in the associated optimization objective. Inspired by [this work](https://www.nature.com/articles/s41467-020-14633-1), this algorithm acts on observations with **multi-type defects**, as we observe more than one defect species in most systems, thus making this algorithm the first practical deconvolution algorithm in STM-QPI processing. 
 
 We follow the notation: 
 $Y = \sum_i(A_i * X_i)$,
@@ -11,22 +15,23 @@ where $Y$ is the 3D (or 2D) observation, $A_i$ is the i-th channel 3D (or 2D) ke
 
 A full list of detailed information on the algorithm and its physical background can be found in this thesis: [Defect-resolved scattering in quantum materials: a scanning tunneling microscope study with algorithmic multi-channel deconvolution](https://open.library.ubc.ca/soa/cIRcle/collections/ubctheses/24/items/1.0451233)
 
-## Requirements
+## Requirement and installation
 
-MATLAB only. Put [Manopt](https://www.manopt.org) on the MATLAB path **before** any script: `init_sbd` checks for `trustregions` and stops if it is missing. Example and trunk scripts then call `init_sbd` in **S0**. Typical Manopt setup: download the toolbox, `cd` into it, run `importmanopt`.
+Version: MATLAB R2019b or later
 
-| Need | What | Used for |
-| --- | --- | --- |
-| MATLAB R2019b or later | Desktop MATLAB | Core language and graphics (`tiledlayout`) |
-| Manopt | Install separately; not vendored here | Riemannian trust-region kernel solve (`spherefactory`, `trustregions`) |
-| Image Processing Toolbox | MATLAB toolbox | Synthetic generation (`imresize`), display (`mat2gray`), interactive ROIs (`drawrectangle`) |
-| Bundled third-party code | Already in [`3rd party/`](3rd%20party/) | slanCM, imshow3D, mat2im — `init_sbd` addpaths these |
+Required toolbox: 
+- **Manopt(Tool­boxes for opti­mization on manifolds and linear spaces)**: used by the core MC-SBD algorithm. See [this](https://www.manopt.org) for details on installation.
+- **Image Processing Toolbox**: MATLAB toolbox
 
-Optional, only for those trunks:
-
+Recommended, necessary for running those trunks:
 - **Signal Processing Toolbox** — Nanonis load (`load3dsall` → `gaussfilter1d`); Gaussian/Kaiser kernel windows
 - **Parallel Computing Toolbox** — phase-space [`run_parallel_dataset.m`](run%20entrance/scripts/phase_space/run_parallel_dataset.m) (`parpool` / `parfor`)
 - **Optimization Toolbox** — Lorentzian Bragg-peak fit in `lorentzianBraggRemove`
+
+Clone this repo via
+```
+git clone https://github.com/Plswearpants/MC-SBD-STM.git
+```
 
 ## A 2D illustration of this work:
 **Script**: [`examples/simple_MCSBD_example.m`](examples/simple_MCSBD_example.m).
@@ -45,12 +50,12 @@ The reason the output kernel looks cleaner than the ground truth is that the alg
 **Convergence**: This simple run converges within 15 iterations and finishes within 10 mins. 
 <img width="1087" height="456" alt="image" src="https://github.com/user-attachments/assets/ae7f9278-b36d-457e-be06-d83ed96fee06" />
 
-## Run the 2D example
+## Run the demo
 
 Script: [`examples/simple_MCSBD_example.m`](examples/simple_MCSBD_example.m).
 Frozen observation: [`examples/example_data/simple_mcsbd_2d/simple_mcsbd_2d.mat`](examples/example_data/simple_mcsbd_2d/).
 
-Use MATLAB **Run Section** on the `%%` cells. Solver knobs live in **DS01A**; generation knobs live in **GD01A**. Those two sets are independent: loading a dataset does not apply the run settings, and changing how the data is generated does not retune the solver for you.
+Use MATLAB **Run Section** on the `%%` cells. Solver knobs live in **DS01A**; generation knobs live in **GD01A**. Those two sets are independent: you can modify the dataset to run and the solver parameters in a modular way. 
 
 | Goal | Route |
 | --- | --- |
@@ -62,11 +67,9 @@ If the bundled `.mat` is missing, generate and freeze once, then use the load ro
 
 If you change **dataset** parameters (SNR, lattice size, defect density, LDoS, and so on), revisit **DS01A** as well (`lambda1`, `maxIT`, phase-II flags, kernel constraints). A recipe that worked on the frozen example can fail or look wrong on a noisier, denser, or larger observation.
 
-Classic single-kernel SBD (no MCSBD trunk): [`examples/simple_SBD_example.m`](examples/simple_SBD_example.m).
-
 ## Real, synthetic, and phase-space runs
 
-Official trunks live under [`run entrance/scripts/`](run%20entrance/scripts/). Previous scripts are `hist_*` files under [`historical/`](historical/) — keep those for recovery.
+Official trunks live under [`run entrance/scripts/`](run%20entrance/scripts/). Previous scripts are `hist_*` files under [`historical/`](historical/).
 
 | If you want to… | Start here | Then | Outputs land in |
 | --- | --- | --- | --- |
