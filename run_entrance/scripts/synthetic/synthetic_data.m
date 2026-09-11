@@ -52,8 +52,8 @@ clc; clear; close all;
 % (mfilename then points at Temp\Editor_*). Fall back to pwd / which.
 repo_root = '';
 seeds = {fileparts(mfilename('fullpath')), pwd};
-w = which('init_sbd');
-if isempty(w); w = which('init_sbd.m'); end
+w = which('init_mcsbd');
+if isempty(w); w = which('init_mcsbd.m'); end
 if ~isempty(w); seeds{end+1} = fileparts(w); end %#ok<AGROW>
 tried = {};
 for i = 1:numel(seeds)
@@ -61,7 +61,7 @@ for i = 1:numel(seeds)
     if isempty(d) || any(strcmp(tried, d)); continue; end
     tried{end+1} = d; %#ok<AGROW>
     while true
-        if exist(fullfile(d, 'init_sbd.m'), 'file')
+        if exist(fullfile(d, 'init_mcsbd.m'), 'file')
             repo_root = d;
             break;
         end
@@ -72,12 +72,12 @@ for i = 1:numel(seeds)
     if ~isempty(repo_root); break; end
 end
 if isempty(repo_root)
-    error(['Could not locate init_sbd.m. cd to the MC-SBD-STM repo ', ...
+    error(['Could not locate init_mcsbd.m. cd to the MC-SBD-STM repo ', ...
         '(or a subfolder), save this script to disk if unsaved, then re-run. ', ...
         'Tried: %s'], strjoin(tried, ' | '));
 end
 addpath(repo_root);
-run(fullfile(repo_root, 'init_sbd.m'));
+run(fullfile(repo_root, 'init_mcsbd.m'));
 
 % Note: Logging is initialized in GD01A (dataset-specific log file)
 
@@ -228,14 +228,14 @@ end
 % -------------------------------------------------------------------------
 % Phase I settings
 params.mcsbd_slice.initial_iteration = 1;          % Manopt/FISTA inner iterations (start)
-params.mcsbd_slice.maxIT = 15;                     % Number of outer alternating iterations
+params.mcsbd_slice.maxIT = 10;                     % Number of outer alternating iterations
 params.mcsbd_slice.lambda1 = 0.02;                 % L1 regularization (Phase I) - scalar or vector
 
 % Phase II settings (refinement)
-params.mcsbd_slice.phase2_enable = false;          % Enable Phase II refinement
+params.mcsbd_slice.phase2_enable = true;          % Enable Phase II refinement
 params.mcsbd_slice.lambda2 = 0.01;                 % L1 regularization (Phase II final) - scalar or vector
 params.mcsbd_slice.nrefine = 5;                    % Number of refinement steps
-params.mcsbd_slice.kplus_factor = 0.5;             % Sphere lifting padding factor
+params.mcsbd_slice.kplus_factor = 0.2;             % Sphere lifting padding factor
 
 % Algorithm parameters
 params.mcsbd_slice.signflip_threshold = 0.2;       % Sign flip detection threshold

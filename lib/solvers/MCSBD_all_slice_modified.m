@@ -230,8 +230,9 @@ function [ Aout, Xout, bout, extras ] = MCSBD_all_slice_modified( Y, k, params, 
         A2 = cell(1, kernel_num);
         X2_struct = struct();
         for n = 1:kernel_num
-            A2{n} = zeros(k3(n,:));
-            A2{n}(kplus(n,1)+(1:k(n,1)), kplus(n,2)+(1:k(n,2))) = A{n};
+            % Spatial pad only; keep the energy-slice axis from Phase I.
+            A2{n} = zeros([k3(n,:), size(A{n}, 3)]);
+            A2{n}(kplus(n,1)+(1:k(n,1)), kplus(n,2)+(1:k(n,2)), :) = A{n};
             X2_struct.(['x',num2str(n)]) = X_struct.(['x',num2str(n)]);
         end
     
@@ -248,7 +249,7 @@ function [ Aout, Xout, bout, extras ] = MCSBD_all_slice_modified( Y, k, params, 
             % Build per-kernel reconstruction cache for this refinement.
             Y_phase2_perkernel = zeros([size(Y), kernel_num]);
             for m = 1:kernel_num
-                Y_phase2_perkernel(:,:,:,m) = convfft2(A2{m}, X2_struct.(['x',num2str(m)]).X) ...
+                Y_phase2_perkernel(:,:,:,m) = recon_AX(A2{m}, X2_struct.(['x',num2str(m)]).X) ...
                     + reshape(X2_struct.(['x',num2str(m)]).b, 1, 1, []);
             end
     
@@ -269,7 +270,7 @@ function [ Aout, Xout, bout, extras ] = MCSBD_all_slice_modified( Y, k, params, 
                     ind1 = tau1+kplus(n,1)+1;
                     for tau2 = -kplus(n,2):kplus(n,2)
                         ind2 = tau2+kplus(n,2)+1;
-                        temp = A2{n}(ind1:(ind1+k(n,1)-1), ind2:(ind2+k(n,2)-1));
+                        temp = A2{n}(ind1:(ind1+k(n,1)-1), ind2:(ind2+k(n,2)-1), :);
                         score(ind1,ind2) = norm(temp(:), 1);
                     end
                 end
@@ -280,13 +281,13 @@ function [ Aout, Xout, bout, extras ] = MCSBD_all_slice_modified( Y, k, params, 
                 X2_struct.(['x',num2str(n)]).W = circshift(X2_struct.(['x',num2str(n)]).W,tau);
 
                 % Refresh only the updated kernel contribution.
-                Y_phase2_perkernel(:,:,:,n) = convfft2(A2{n}, X2_struct.(['x',num2str(n)]).X) ...
+                Y_phase2_perkernel(:,:,:,n) = recon_AX(A2{n}, X2_struct.(['x',num2str(n)]).X) ...
                     + reshape(X2_struct.(['x',num2str(n)]).b, 1, 1, []);
     
                 % Save phase 2 extras
                 extras.phase2.A{n} = A2{n};
                 extras.phase2.X{n} = X2_struct.(['x',num2str(n)]).X;
-                extras.phase2.b(n) = X2_struct.(['x',num2str(n)]).b;
+                extras.phase2.b(:,n) = X2_struct.(['x',num2str(n)]).b(:);
                 extras.phase2.info{n} = info;
             end
             
@@ -295,7 +296,7 @@ function [ Aout, Xout, bout, extras ] = MCSBD_all_slice_modified( Y, k, params, 
             A2_central = cell(1, kernel_num);
             for n = 1:kernel_num
                 X2_combined(:,:,n) = X2_struct.(['x',num2str(n)]).X;
-                A2_central{n} = A2{n}(kplus(n,1)+(1:k(n,1)), kplus(n,2)+(1:k(n,2)));
+                A2_central{n} = A2{n}(kplus(n,1)+(1:k(n,1)), kplus(n,2)+(1:k(n,2)), :);
             end
     
             [activation_similarity, kernel_similarity] = computeQualityMetrics(X0, X2_combined, A0, A2_central, k3);
@@ -321,15 +322,15 @@ function [ Aout, Xout, bout, extras ] = MCSBD_all_slice_modified( Y, k, params, 
     if params.phase2
         Aout = cell(1, kernel_num);
         Xout = zeros(size(Y,1), size(Y,2), kernel_num);
-        bout = zeros(kernel_num, 1);
+        bout = zeros(slices, kernel_num);
         extras.normA = zeros(kernel_num, 1);
         
         for n = 1:kernel_num
-            Aout{n} = A2{n}(kplus(n,1)+(1:k(n,1)), kplus(n,2)+(1:k(n,2)));
+            Aout{n} = A2{n}(kplus(n,1)+(1:k(n,1)), kplus(n,2)+(1:k(n,2)), :);
             extras.normA(n) = norm(Aout{n}(:));
             Xout(:,:,n) = circshift(X2_struct.(['x',num2str(n)]).X, kplus(n,:)) * extras.normA(n);
             Aout{n} = Aout{n} / extras.normA(n);
-            bout(n) = X2_struct.(['x',num2str(n)]).b;
+            bout(:,n) = X2_struct.(['x',num2str(n)]).b(:);
         end
     else
         Aout = A;
@@ -359,4 +360,13 @@ function [ Aout, Xout, bout, extras ] = MCSBD_all_slice_modified( Y, k, params, 
     
     % Store runtime in extras
     extras.runtime = total_runtime;
+end
+
+function Yhat = recon_AX(A, X)
+    % 3D kernels (energy stacks) use slice-wise convfft3; 2D kernels use convfft2.
+    if size(A, 3) > 1
+        Yhat = convfft3(A, X);
+    else
+        Yhat = convfft2(A, X);
+    end
 end

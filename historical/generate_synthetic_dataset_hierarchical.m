@@ -1,6 +1,6 @@
 %% Clear workspace and initialize
 clc; clear;
-run('../init_sbd');
+run('../init_mcsbd');
 
 %% 1. Initial Setup
 % Load LDoS simulation data for kernel selection

@@ -1,6 +1,6 @@
 %% Clear workspace and initialize
 clc; clear;
-run('../init_sbd');  % Adjust path as needed
+run('../init_mcsbd');  % Adjust path as needed
 
 %% Load and display LDoS simulation data for kernel selection
 load('example_data/LDoS_sim.mat');

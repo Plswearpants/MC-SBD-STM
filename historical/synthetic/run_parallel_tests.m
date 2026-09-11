@@ -1,5 +1,5 @@
 clc; clear;
-run('../init_sbd');
+run('../init_mcsbd');
 
 %% Load pre-generated synthetic datasets
 load('results\synthetic_datasets/synthetic_datasets_20250628_220033.mat');  

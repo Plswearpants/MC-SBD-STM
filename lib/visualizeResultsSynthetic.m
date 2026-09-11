@@ -195,8 +195,9 @@ function [Y_reconstruct, saved_figures, slices_visualized] = runSyntheticVisuali
     actGrid.ColumnWidth = {'1x', '1x'};
     axActX0 = uiaxes(actGrid);
     axActXout = uiaxes(actGrid);
-    axActDiff = uiaxes(actGrid);
     txtAct = uitextarea(actGrid, 'Editable', 'off', 'Value', {'Activation metrics'});
+    txtAct.Layout.Row = 2;
+    txtAct.Layout.Column = [1, 2];
 
     qpiGrid = uigridlayout(tabQPI, [2, 2]);
     qpiGrid.RowHeight = {'1x', '1x'};
@@ -283,9 +284,6 @@ function [Y_reconstruct, saved_figures, slices_visualized] = runSyntheticVisuali
             title(axActX0, sprintf('K%d Filtered X0', kernel_idx));
             imagesc(axActXout, filtered_maps(kernel_idx).Xout); axis(axActXout, 'image'); colorbar(axActXout); colormap(axActXout, synMap);
             title(axActXout, sprintf('K%d Filtered Xout', kernel_idx));
-            imagesc(axActDiff, filtered_maps(kernel_idx).X0 - filtered_maps(kernel_idx).Xout);
-            axis(axActDiff, 'image'); colorbar(axActDiff); colormap(axActDiff, synMap);
-            title(axActDiff, sprintf('K%d Diff', kernel_idx));
             txtAct.Value = {
                 sprintf('Kernel: %d', kernel_idx)
                 sprintf('Similarity: %.4f', similarities(kernel_idx))
@@ -293,12 +291,12 @@ function [Y_reconstruct, saved_figures, slices_visualized] = runSyntheticVisuali
                 sprintf('Alignment peak: %.4f', align_quality(kernel_idx).primary_peak)
                 sprintf('sigma: %.4f', filtered_maps(kernel_idx).sigma)
                 sprintf('density: %.4g', filtered_maps(kernel_idx).density)
+                'No X0-Xout diff: Xout scale follows a unit-norm kernel.'
             };
         else
-            cla(axActX0); cla(axActXout); cla(axActDiff);
+            cla(axActX0); cla(axActXout);
             title(axActX0, 'Disabled');
             title(axActXout, 'Disabled');
-            title(axActDiff, 'Disabled');
             txtAct.Value = {'Activation panel disabled.'};
         end
 

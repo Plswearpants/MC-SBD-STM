@@ -90,33 +90,26 @@ function visualizeSimilarityAnalysis(X0, Xout, X0_filtered, Xout_filtered, ...
     if visualize
         if k == 1 || num_kernels == 1
             figure('Name', ['Activation Similarity Analysis' idx_str], ...
-               'Position', [100, 100, 1200, 300*num_kernels]);
+               'Position', [100, 100, 900, 300*num_kernels]);
         end
         
-        % Calculate subplot positions
-        base_idx = (k-1)*4;
-        % Gaussian kernel
-        subplot(num_kernels,4,base_idx + 1);
+        % Filter | filtered X0 | filtered Xout. No X0-Xout diff: Xout scale
+        % follows a unit-norm kernel, so the pixelwise difference is not meaningful.
+        base_idx = (k-1)*3;
+        subplot(num_kernels,3,base_idx + 1);
         surf(gaussian_kernel);
         title(sprintf('K%d: Filter\nσ=%.1f, L=%.1f', k, sigma, L));
         axis square;
         
-        % Filtered maps
         synMap = sbd_image_cmap('synthetic');
-        subplot(num_kernels,4,base_idx + 2);
+        subplot(num_kernels,3,base_idx + 2);
         imagesc(X0_filtered);
         title(sprintf('K%d: Filtered X0', k));
         colorbar; axis square; colormap(gca, synMap);
         
-        subplot(num_kernels,4,base_idx + 3);
+        subplot(num_kernels,3,base_idx + 3);
         imagesc(Xout_filtered);
-        title(sprintf('K%d: Filtered Xout', k));
-        colorbar; axis square; colormap(gca, synMap);
-        
-        % Difference
-        subplot(num_kernels,4,base_idx + 4);
-        imagesc(X0_filtered - Xout_filtered);
-        title(sprintf('K%d: Diff\nSim=%.3f', k, similarity));
+        title(sprintf('K%d: Filtered Xout\nSim=%.3f', k, similarity));
         colorbar; axis square; colormap(gca, synMap);
 
         sgtitle(['Activation Similarity Analysis' idx_str]);

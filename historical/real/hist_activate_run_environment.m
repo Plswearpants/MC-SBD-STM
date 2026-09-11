@@ -26,10 +26,10 @@ function env = hist_activate_run_environment(run_dir, varargin)
     end
 
     repo_root = fileparts(mfilename('fullpath'));
-    while ~exist(fullfile(repo_root, 'init_sbd.m'), 'file')
+    while ~exist(fullfile(repo_root, 'init_mcsbd.m'), 'file')
         parent = fileparts(repo_root);
         if isempty(parent) || strcmp(parent, repo_root)
-            error('Could not locate repo root (init_sbd.m).');
+            error('Could not locate repo root (init_mcsbd.m).');
         end
         repo_root = parent;
     end
@@ -47,7 +47,7 @@ function env = hist_activate_run_environment(run_dir, varargin)
 
     cd(run_dir);
     addpath(repo_root);
-    init_sbd('quiet', false);
+    init_mcsbd('quiet', false);
 
     env = struct();
     env.run_dir = run_dir;

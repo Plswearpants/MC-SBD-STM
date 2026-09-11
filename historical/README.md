@@ -13,10 +13,10 @@ Not the user guide. Public usage is the root [`README.md`](../README.md).
 
 **Settled conventions**
 
-- Trunks: `run entrance/scripts/{real,synthetic,phase_space,tool}/`
-- Session trees: `run entrance/projects/`
+- Trunks: `run_entrance/scripts/{real,synthetic,phase_space,tool}/`
+- Session trees: `run_entrance/projects/`
 - Payloads: `store/` (library), `paper/` (freeze)
 - Code: `lib/` (including `core/` and `solvers/`), vendor in `3rd party/`
-- Solver `.mat` templates: local under `config/` (created by `init_sbd`)
+- Solver `.mat` templates: local under `config/` (created by `init_mcsbd`)
 - LDoS kernels: `store/synthetic/ldos/`
 - New change rows go in [`history/CHANGELOG.md`](history/CHANGELOG.md)

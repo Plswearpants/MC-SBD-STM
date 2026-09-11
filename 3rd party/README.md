@@ -1,6 +1,6 @@
 # Third-party packages
 
-`init_sbd` addpaths this folder via `genpath`. Domain code lives in `lib/`, not here.
+`init_mcsbd` addpaths this folder via `genpath`. Domain code lives in `lib/`, not here.
 
 | Package | Path | Notes |
 | --- | --- | --- |

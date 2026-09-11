@@ -22,7 +22,7 @@ script_dir = fileparts(mfilename('fullpath'));
 d = script_dir;
 repo_root = '';
 while true
-    if exist(fullfile(d, 'init_sbd.m'), 'file')
+    if exist(fullfile(d, 'init_mcsbd.m'), 'file')
         repo_root = d;
         break;
     end
@@ -33,10 +33,10 @@ while true
     d = parent;
 end
 if isempty(repo_root)
-    error('Could not locate init_sbd.m. cd to the MC-SBD-STM repo, then re-run.');
+    error('Could not locate init_mcsbd.m. cd to the MC-SBD-STM repo, then re-run.');
 end
 addpath(repo_root);
-run(fullfile(repo_root, 'init_sbd.m'));
+run(fullfile(repo_root, 'init_mcsbd.m'));
 
 %% 1) Load / validate measurement Y
 Y = load_measurement_Y_if_needed();

@@ -1,12 +1,12 @@
 function repo_root = find_repo_root(varargin)
-%FIND_REPO_ROOT Locate MC-SBD-STM repo root (directory containing init_sbd.m).
+%FIND_REPO_ROOT Locate MC-SBD-STM repo root (directory containing init_mcsbd.m).
 %   REPO_ROOT = FIND_REPO_ROOT()
 %   REPO_ROOT = FIND_REPO_ROOT(START_DIR)
 %   REPO_ROOT = FIND_REPO_ROOT(START_DIR1, START_DIR2, ...)
 %
-%   Tries each start directory (walking parents), then pwd, then which('init_sbd').
+%   Tries each start directory (walking parents), then pwd, then which('init_mcsbd').
 %   This survives MATLAB Editor temp copies (Temp\Editor_*) when pwd is inside
-%   the repo or init_sbd is already on the path.
+%   the repo or init_mcsbd is already on the path.
 
     seeds = {};
     for i = 1:nargin
@@ -16,9 +16,9 @@ function repo_root = find_repo_root(varargin)
     end
     seeds{end+1} = pwd; %#ok<AGROW>
 
-    w = which('init_sbd');
+    w = which('init_mcsbd');
     if isempty(w)
-        w = which('init_sbd.m');
+        w = which('init_mcsbd.m');
     end
     if ~isempty(w)
         seeds{end+1} = fileparts(w); %#ok<AGROW>
@@ -33,7 +33,7 @@ function repo_root = find_repo_root(varargin)
         tried{end+1} = start_dir; %#ok<AGROW>
         d = start_dir;
         while true
-            if exist(fullfile(d, 'init_sbd.m'), 'file')
+            if exist(fullfile(d, 'init_mcsbd.m'), 'file')
                 repo_root = d;
                 return;
             end
@@ -45,7 +45,7 @@ function repo_root = find_repo_root(varargin)
         end
     end
 
-    error(['Could not locate init_sbd.m. cd to the MC-SBD-STM repo (or a ', ...
+    error(['Could not locate init_mcsbd.m. cd to the MC-SBD-STM repo (or a ', ...
         'subfolder), save the script to disk if it is unsaved, then re-run. ', ...
         'Seeds tried: %s'], strjoin(tried, ' | '));
 end

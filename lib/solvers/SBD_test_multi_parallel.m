@@ -49,7 +49,7 @@ function [ Aout, Xout, bout, extras ] = SBD_test_multi_parallel( Y, k, fixed_par
     
     % Get project root directory and config paths
     root_dir = fileparts(mfilename('fullpath'));
-    while ~exist(fullfile(root_dir, 'init_sbd.m'), 'file')
+    while ~exist(fullfile(root_dir, 'init_mcsbd.m'), 'file')
         parent = fileparts(root_dir);
         if isempty(parent) || strcmp(parent, root_dir)
             error('Could not locate repo root from solvers/SBD_test_multi_parallel.m');

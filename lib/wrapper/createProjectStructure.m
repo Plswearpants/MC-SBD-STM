@@ -24,7 +24,7 @@ function [meta] = createProjectStructure(varargin)
 %           .project_prefix - Prefix used for project naming
 %
 %   FOLDER STRUCTURE CREATED (Nested Structure):
-%       \MC-SBD-STM\run entrance\projects\synthetic_<timestamp>\
+%       \MC-SBD-STM\run_entrance\projects\synthetic_<timestamp>\
 %           ├─ auto\                        (dataset folder for auto initialization)
 %           │  ├─ auto.mat                  (dataset file)
 %           │  ├─ auto_LOGfile.txt          (dataset log file)

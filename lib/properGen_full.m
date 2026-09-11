@@ -111,26 +111,16 @@ function [Y, A0_noiseless, X0, params] = properGen_full(varargin)
             error('N not found in the loaded file. This parameter is required.');
         end
         
-        % Load rho_single
-        if isfield(loaded_data, 'LDoS_sim')
+        % GD01A always uses LDoS_result (no field picker). Older files may
+        % still store the stack as LDoS_sim.
+        if isfield(loaded_data, 'LDoS_result')
+            rho_single = loaded_data.LDoS_result;
+            fprintf('Using QPI field LDoS_result.\n');
+        elseif isfield(loaded_data, 'LDoS_sim')
             rho_single = loaded_data.LDoS_sim;
+            fprintf('LDoS_result not found; using QPI field LDoS_sim.\n');
         else
-            potential_fields = find(structfun(@(x) ndims(x) >= 2, loaded_data));
-            field_names = fieldnames(loaded_data);
-            
-            if length(potential_fields) == 1
-                rho_single = loaded_data.(field_names{potential_fields});
-            elseif length(potential_fields) > 1
-                [idx, ok] = listdlg('ListString', field_names(potential_fields), ...
-                                  'SelectionMode', 'single', ...
-                                  'PromptString', 'Select the QPI data field:');
-                if ~ok
-                    error('No field selected');
-                end
-                rho_single = loaded_data.(field_names{potential_fields(idx)});
-            else
-                error('No suitable data field found in the file');
-            end
+            error('LDoS_result not found in the loaded file.');
         end
     catch ME
         error('Error loading file: %s', ME.message);
@@ -155,6 +145,9 @@ function [Y, A0_noiseless, X0, params] = properGen_full(varargin)
     fprintf('\nTotal available slices: %d\n', total_slices);
     
     % Get slice selection from command line
+    avoid_lo = 15;
+    avoid_hi = 27;
+    fprintf('Reminder: avoid slices in [%d, %d].\n', avoid_lo, avoid_hi);
     while true
         input_str = input('Enter slice numbers separated by spaces (e.g., "2 14"): ', 's');
         selected_indices = str2num(input_str); %#ok<ST2NM>
@@ -168,6 +161,12 @@ function [Y, A0_noiseless, X0, params] = properGen_full(varargin)
         if any(selected_indices < 1) || any(selected_indices > total_slices)
             fprintf('Invalid slice numbers. Must be between 1 and %d.\n', total_slices);
             continue;
+        end
+
+        in_avoid_band = selected_indices >= avoid_lo & selected_indices <= avoid_hi;
+        if any(in_avoid_band)
+            fprintf('Warning: slice(s) %s fall in [%d, %d]. Prefer slices outside that band.\n', ...
+                num2str(selected_indices(in_avoid_band)), avoid_lo, avoid_hi);
         end
         
         break;

@@ -1,7 +1,7 @@
 clc; clear;
 
 % Import Manopt and initialize the SBD package
-run('../init_sbd');
+run('../init_mcsbd');
 fprintf('\n\n');
 
 %% ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Create synthetic multi-kernel observation~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

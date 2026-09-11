@@ -58,10 +58,10 @@ function env = hist_create_run_environment(run_dir, varargin)
     ensure_dir(cfg_dir);
 
     repo_root = fileparts(mfilename('fullpath'));
-    while ~exist(fullfile(repo_root, 'init_sbd.m'), 'file')
+    while ~exist(fullfile(repo_root, 'init_mcsbd.m'), 'file')
         parent = fileparts(repo_root);
         if isempty(parent) || strcmp(parent, repo_root)
-            error('Could not locate repo root (init_sbd.m).');
+            error('Could not locate repo root (init_mcsbd.m).');
         end
         repo_root = parent;
     end
@@ -175,7 +175,7 @@ function write_launcher(run_dir, repo_root, launcher_name, target_script, shared
     fprintf(fid, 'setenv(''MC_SBD_ALL_INPUTS_DIR'', all_inputs_dir);\n');
     fprintf(fid, 'cd(run_env);\n');
     fprintf(fid, 'addpath(repo_root);\n');
-    fprintf(fid, 'init_sbd(''quiet'', false);\n');
+    fprintf(fid, 'init_mcsbd(''quiet'', false);\n');
     fprintf(fid, 'run(target_script);\n');
 end
 

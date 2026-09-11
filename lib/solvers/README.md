@@ -1,6 +1,6 @@
 # Solvers
 
-Live entrypoints (`init_sbd` puts this folder on the path):
+Live entrypoints (`init_mcsbd` puts this folder on the path):
 
 | Function | Used by |
 | --- | --- |

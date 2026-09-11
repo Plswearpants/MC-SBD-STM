@@ -32,8 +32,8 @@
 script_dir = fileparts(mfilename('fullpath'));
 repo_root = '';
 seeds = {script_dir, pwd};
-w = which('init_sbd');
-if isempty(w); w = which('init_sbd.m'); end
+w = which('init_mcsbd');
+if isempty(w); w = which('init_mcsbd.m'); end
 if ~isempty(w); seeds{end+1} = fileparts(w); end %#ok<AGROW>
 tried = {};
 for i = 1:numel(seeds)
@@ -41,7 +41,7 @@ for i = 1:numel(seeds)
     if isempty(d) || any(strcmp(tried, d)); continue; end
     tried{end+1} = d; %#ok<AGROW>
     while true
-        if exist(fullfile(d, 'init_sbd.m'), 'file')
+        if exist(fullfile(d, 'init_mcsbd.m'), 'file')
             repo_root = d;
             break;
         end
@@ -52,11 +52,11 @@ for i = 1:numel(seeds)
     if ~isempty(repo_root); break; end
 end
 if isempty(repo_root)
-    warning(['Could not locate init_sbd.m. Add the MT-SBD-STM repo to the ', ...
+    warning(['Could not locate init_mcsbd.m. Add the MT-SBD-STM repo to the ', ...
         'path manually if library calls fail. Tried: %s'], strjoin(tried, ' | '));
 else
     addpath(repo_root);
-    run(fullfile(repo_root, 'init_sbd.m'));
+    run(fullfile(repo_root, 'init_mcsbd.m'));
 end
 
 

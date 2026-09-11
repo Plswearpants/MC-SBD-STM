@@ -1,9 +1,9 @@
-function repo_root = bootstrap_init_sbd()
-%BOOTSTRAP_INIT_SBD Find repo root and run init_sbd (Editor-temp safe).
-%   REPO_ROOT = BOOTSTRAP_INIT_SBD()
+function repo_root = bootstrap_init_mcsbd()
+%BOOTSTRAP_INIT_MCSBD Find repo root and run init_mcsbd (Editor-temp safe).
+%   REPO_ROOT = BOOTSTRAP_INIT_MCSBD()
 %
 %   Safe to call from trunk scripts even when MATLAB runs an unsaved Editor
-%   buffer under Temp\Editor_*: falls back to pwd and which('init_sbd').
+%   buffer under Temp\Editor_*: falls back to pwd and which('init_mcsbd').
 
     seeds = {};
     try
@@ -22,9 +22,9 @@ function repo_root = bootstrap_init_sbd()
     end
     seeds{end+1} = pwd; %#ok<AGROW>
 
-    w = which('init_sbd');
+    w = which('init_mcsbd');
     if isempty(w)
-        w = which('init_sbd.m');
+        w = which('init_mcsbd.m');
     end
     if ~isempty(w)
         seeds{end+1} = fileparts(w); %#ok<AGROW>
@@ -40,7 +40,7 @@ function repo_root = bootstrap_init_sbd()
         tried{end+1} = start_dir; %#ok<AGROW>
         d = start_dir;
         while true
-            if exist(fullfile(d, 'init_sbd.m'), 'file')
+            if exist(fullfile(d, 'init_mcsbd.m'), 'file')
                 repo_root = d;
                 break;
             end
@@ -56,11 +56,11 @@ function repo_root = bootstrap_init_sbd()
     end
 
     if isempty(repo_root)
-        error(['Could not locate init_sbd.m. cd to the MC-SBD-STM repo root ', ...
+        error(['Could not locate init_mcsbd.m. cd to the MC-SBD-STM repo root ', ...
             'or any subfolder, save this script if it is unsaved, then re-run.\n', ...
             'Tried: %s'], strjoin(tried, ' | '));
     end
 
     addpath(repo_root);
-    run(fullfile(repo_root, 'init_sbd.m'));
+    run(fullfile(repo_root, 'init_mcsbd.m'));
 end

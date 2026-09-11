@@ -1,6 +1,6 @@
 # Store — reusable library
 
-Named payloads that survive a sitting. Session scratch: `run entrance/projects/`. Manuscript freeze: [`paper/`](../paper/).
+Named payloads that survive a sitting. Session scratch: `run_entrance/projects/`. Manuscript freeze: [`paper/`](../paper/).
 
 Binaries (`.mat`, `.3ds`) are gitignored. This file is the tracked map.
 

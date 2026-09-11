@@ -25,7 +25,11 @@ function p = repo_payload_paths(start_dir)
     p.phase_metrics = fullfile(root, 'store', 'phase_space', 'metrics');
     p.paper_freeze_real = fullfile(root, 'paper', 'freeze', 'real');
     p.paper_freeze_phase = fullfile(root, 'paper', 'freeze', 'phase_space');
-    p.projects = fullfile(root, 'run entrance', 'projects');
+    p.projects = fullfile(root, 'run_entrance', 'projects');
+    legacy_projects = fullfile(root, 'run entrance', 'projects');
+    if ~isfolder(p.projects) && isfolder(legacy_projects)
+        p.projects = legacy_projects;
+    end
     p.examples = fullfile(root, 'examples');
     p.examples_data = fullfile(root, 'examples', 'example_data');
 end

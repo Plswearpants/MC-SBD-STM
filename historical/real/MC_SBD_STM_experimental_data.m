@@ -2,7 +2,7 @@
 clc; clear;
 
 % Import Manopt and initialize the SBD package
-run('../init_sbd');
+run('../init_mcsbd');
 fprintf('\n\n');
 
 %% 0. Load the .3ds data

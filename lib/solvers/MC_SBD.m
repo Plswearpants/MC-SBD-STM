@@ -316,7 +316,7 @@ end
 
 function ensure_tunable_configs(max_iteration, params)
     repo_root = fileparts(mfilename('fullpath'));
-    while ~exist(fullfile(repo_root, 'init_sbd.m'), 'file')
+    while ~exist(fullfile(repo_root, 'init_mcsbd.m'), 'file')
         parent = fileparts(repo_root);
         if isempty(parent) || strcmp(parent, repo_root)
             error('Could not locate repo root from solvers/MC_SBD.m');
